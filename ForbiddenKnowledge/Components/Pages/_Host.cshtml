@@ -1,0 +1,50 @@
+﻿@page "/"
+@namespace ForbiddenKnowledge.Pages
+@using ForbiddenKnowledge.Components
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
+
+<!--
+    _Host.cshtml is specific to Blazor server web apps.
+    Blazor server relies on the Razor Pages infrastructure to serve the Blazor app.
+    This _Host.cshtml razor page bootstraps the blazor app and defines the inital HTML structure.
+    The blazor app literally starts in the <component> tag below.
+    This calls the App. blazor file.
+    _Host.cshtml also load in basic CSS (Bootstrap) and very importantly
+    the blazor.server.js script, which establishes the SignalR connection.
+-->
+
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+        <base href="/" />
+        <link rel="icon" href="img/icon-512.png" />
+        <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet" />
+        <link href="css/site.css" rel="stylesheet" />
+        <title>Forbidden Knowledge</title>
+    </head>
+    <body>
+
+        <div id="app">
+          <div class="content">
+            <component type="typeof(App)" render-mode="ServerPrerendered" />
+          </div>
+        </div>
+
+        <div id="blazor-error-ui">
+            <environment include="Staging,Production">
+                An error has occurred. This application may no longer respond until reloaded.
+            </environment>
+            <environment include="Development">
+                An unhandled exception has occurred. See browser dev tools for details.
+            </environment>
+            <a href="" class="reload">Reload</a>
+            <a class="dismiss">🗙</a>
+        </div>
+
+        <script src="_framework/blazor.server.js"></script>
+    </body>
+</html>

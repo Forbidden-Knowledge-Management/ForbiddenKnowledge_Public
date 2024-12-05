@@ -1,0 +1,120 @@
+﻿@page "/blogposts/{blogPostId:int}"
+@using ForbiddenKnowledge.Data.Models
+@inject NavigationManager NavigationManager
+@inject HttpClient HttpClient
+
+<div>
+    @if (isLoading)
+    {
+        <p>Loading...</p>
+    }
+    else if (!string.IsNullOrEmpty(blogPost.PostContent))
+    {
+        <div>
+
+            @* breadcrumb with categories that are links *@
+            <nav class="breadcrumb">
+                <a href="@($"/blogposts/category/{blogPost.CategoryId}")" class="breadcrumb-item">@blogPost.Category.Name</a>               
+            </nav>
+
+            <h3>@blogPost.Title</h3>
+
+            <!-- Tags and Author Info -->
+            <div class="post-meta">
+                <span class="tags">
+                    @foreach (BlogPostTag tag in blogPost.BlogPostTags)
+                    {
+                        <span class="tag">@tag.BlogPostTagLookup.Name</span>
+                    }
+                </span>
+                <span class="author-info">
+                    by: <span class="scroll-to-author" onclick="document.getElementById('author-bio').scrollIntoView({ behavior: 'smooth' })">@blogPost.Author.Name</span> | published @blogPost.PublishedDateTime.ToString("MMMM dd, yyyy")
+                </span>
+            </div>
+
+            <!-- Link for sharing and Comments Section -->
+            <div class="share-and-comments">
+                <span class="share-links">
+                    <a href="@($"https://twitter.com/share?url={NavigationManager.BaseUri}blogposts/{BlogPostId}")" target="_blank">Share on Twitter</a> |
+                    <a href="@($"https://www.facebook.com/sharer.php?u={NavigationManager.BaseUri}blogposts/{BlogPostId}")" target="_blank">Share on Facebook</a>
+                </span>
+                <span class="comments-link">
+                    | <a href="#comments">Comments</a>
+                </span>
+            </div>
+
+            <div class="blog-content" @key="BlogPostId">
+                @((MarkupString)blogPost.PostContent)
+            </div>
+
+            <hr class="divider" />
+
+            <!-- Author Bio Section -->
+            <div id="author-bio" class="author-bio">
+                <div class="author-bio-header">
+                    <img src="@blogPost.Author.ImagePath" alt="@blogPost.Author.Name" class="author-image" />
+                    <div class="author-details">
+                        <p><strong>@blogPost.Author.Name</strong></p>
+                        <p><a href="mailto:@blogPost.Author.Email">@blogPost.Author.Email</a></p>
+                    </div>
+                </div>
+
+                <div class="author-bio-text">
+                    <p>@blogPost.Author.Biography</p>
+                </div>
+            </div>
+
+            @* comments section here *@
+            <div id="comments" class="comments-section">
+
+            </div>
+
+        </div>
+    }
+    else
+    {
+        <p>Post not found.</p>
+    }
+</div>
+
+
+
+@code 
+{
+    [Parameter]
+    public int BlogPostId { get; set; }
+
+    Data.Models.BlogPost? blogPost;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        blogPost = await HttpClient.GetFromJsonAsync<Data.Models.BlogPost>($"{NavigationManager.BaseUri}api/blogposts/{BlogPostId}");
+
+        if (blogPost != null && blogPost != default)
+        {
+            isLoading = false;
+        }
+    }
+
+    // private async Task SubmitComment()
+    // {
+    //     if (!string.IsNullOrWhiteSpace(newCommentContent))
+    //     {
+    //         var newComment = new Comment
+    //             {
+    //                 UserName = newCommentName,
+    //                 Content = newCommentContent,
+    //                 PostedAt = DateTime.Now
+    //             };
+    //         blogPost.Comments.Add(newComment);
+
+    //         // Save to the database or API (requires backend handling)
+    //         await HttpClient.PostAsJsonAsync($"{NavigationManager.BaseUri}blogposts/{BlogPostId}/comments", newComment);
+
+    //         // Clear the form
+    //         newCommentName = string.Empty;
+    //         newCommentContent = string.Empty;
+    //     }
+    // }
+}

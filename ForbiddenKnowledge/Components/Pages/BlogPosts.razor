@@ -1,0 +1,63 @@
+﻿@page "/blogposts"
+@inject NavigationManager NavigationManager
+@inject HttpClient HttpClient
+
+<div class="main">
+
+    @if (blogPosts == null)
+    {
+        <text>Loading...</text>
+    }
+    else if (!blogPosts.Any())
+    {
+        <h3>There are no posts at this time</h3>
+    }
+    else
+    {
+        <div class="list-group orders-list">
+            @foreach (Data.Models.BlogPost post in blogPosts)
+            {
+                <div class="blog-post-item">
+                    <!-- Left Side: Image -->
+                    <img src="@($"{NavigationManager.BaseUri}{post.ImagePath}")" alt="Post image" class="blog-post-image" />
+
+                    <!-- Right Side: Content -->
+                    <div class="content">
+                        <!-- Title (Link) -->
+                        <h3 class="blog-post-title">
+                            <a href="@($"blogposts/{post.Id}")" class="blog-post-link">
+                                @post.Title
+                            </a>
+                        </h3>
+
+                        <!-- Author and Published Time -->
+                        <p class="blog-post-meta">
+                            By @post.Author.Name published @post.PublishedDateTime.ToString("g")
+                        </p>
+
+                        <!-- Excerpt or Description (optional) -->
+@*                         <p class="blog-post-excerpt">
+                            @post.Excerpt
+                        </p> *@
+                    </div>
+                </div>
+                <hr class="blog-post-separator" />
+            }
+        </div>
+    }
+
+</div>
+
+
+
+
+@code 
+{
+    List<Data.Models.BlogPost> blogPosts = new List<Data.Models.BlogPost>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        blogPosts = await HttpClient.GetFromJsonAsync<List<Data.Models.BlogPost>>($"{NavigationManager.BaseUri}api/blogposts");
+    }
+
+}
