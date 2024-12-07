@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 
 using ForbiddenKnowledge.Data;
-using ForbiddenKnowledge.Data.Models;
+using ForbiddenKnowledge.Data.DbModels;
 
 
 namespace ForbiddenKnowledge.Services

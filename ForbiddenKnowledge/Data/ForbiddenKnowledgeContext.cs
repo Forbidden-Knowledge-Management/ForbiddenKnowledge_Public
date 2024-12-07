@@ -1,4 +1,4 @@
-﻿using ForbiddenKnowledge.Data.Models;
+﻿using ForbiddenKnowledge.Data.DbModels;
 using Microsoft.EntityFrameworkCore;
 
 
@@ -41,6 +41,8 @@ namespace ForbiddenKnowledge.Data
         public DbSet<BlogPostTag> BlogPostTags { get; set; }
 
         public DbSet<BlogPost> BlogPosts { get; set; }
+
+        public DbSet<User> Users { get; set; }
 
 
 

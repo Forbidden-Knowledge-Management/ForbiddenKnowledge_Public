@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Identity;
 
 using NLog.Web;
 using NLog;
@@ -10,6 +11,7 @@ using ForbiddenKnowledge.Data;
 using ForbiddenKnowledge.Services.Audit;
 using ForbiddenKnowledge.Hubs;
 using ForbiddenKnowledge.Services;
+using ForbiddenKnowledge.Data.DbModels;
 
 var logger = NLog.LogManager.Setup().LoadConfigurationFromAppSettings().GetCurrentClassLogger();
 logger.Debug("init main");
@@ -42,6 +44,7 @@ try
     //We also need to make the separate DBContext for the audit logs
     builder.Services.AddDbContext<AuditDbContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("ForbiddenKnowledgeContext")), ServiceLifetime.Scoped);
 
+    //services needed by the balzor web stack
     builder.Services.AddAntiforgery(o => o.HeaderName = "XSRF-TOKEN");
     builder.Services.AddRazorComponents()
         .AddInteractiveServerComponents();
@@ -51,7 +54,35 @@ try
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddSignalR(); // Add SignalR services. needed for SignalR logging.
 
+    //.NET Identity Core Auth
+    builder.Services.AddIdentityCore<User>(options =>
+    {
+        options.Password.RequiredLength = 12;
+        options.Password.RequireNonAlphanumeric = true;
+        options.Password.RequireUppercase = true;
+        options.Password.RequireDigit = true;
+    })
+    .AddSignInManager()
+    .AddDefaultTokenProviders()
+    .AddUserStore<CustomUserStore>();
+
+    //ZM to-do: review these settings
+
+    builder.Services.AddAuthentication(IdentityConstants.ApplicationScheme)
+    .AddCookie(IdentityConstants.ApplicationScheme, options =>
+    {
+        options.LoginPath = "/Account/Login";                   // Adjust as needed
+        options.LogoutPath = "/Account/Logout";
+        options.ExpireTimeSpan = TimeSpan.FromDays(7);           // Cookie expiration
+        options.SlidingExpiration = true;                        // Extend expiration on activity
+        options.Cookie.HttpOnly = true;                          // Secure cookie
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // Only over HTTPS
+        options.Cookie.SameSite = SameSiteMode.Lax;             // Cross-site prevention
+    });
+
+
     //Custom Services
+    builder.Services.AddScoped<IUserStore<User>, CustomUserStore>();
     builder.Services.AddScoped<IBlogPostService, BlogPostService>();
     //builder.Services.AddScoped<OrderState>();
 
@@ -77,6 +108,8 @@ try
         app.UseDeveloperExceptionPage();
     }
 
+    app.UseAuthentication();
+    app.UseAuthorization();
     app.UseHttpsRedirection();
     app.UseStaticFiles();
     app.UseRouting();

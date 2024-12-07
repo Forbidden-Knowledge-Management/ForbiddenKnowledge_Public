@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace ForbiddenKnowledge.Data.Models
+namespace ForbiddenKnowledge.Data.DbModels
 {
     [Table("blog_post", Schema = "public")]
     public class BlogPost

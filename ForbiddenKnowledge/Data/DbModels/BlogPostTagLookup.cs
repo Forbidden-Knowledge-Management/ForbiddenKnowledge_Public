@@ -1,10 +1,10 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace ForbiddenKnowledge.Data.Models
+namespace ForbiddenKnowledge.Data.DbModels
 {
-    [Table("blog_post_category_lookup", Schema = "public")]
-    public class BlogPostCategoryLookup
+    [Table("blog_post_tag_lookup", Schema = "public")]
+    public class BlogPostTagLookup
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
@@ -15,6 +15,5 @@ namespace ForbiddenKnowledge.Data.Models
         [MaxLength(100)]
         [Column("name")]
         public required string Name { get; set; }
-
     }
 }
