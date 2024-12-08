@@ -1,4 +1,4 @@
-﻿using ForbiddenKnowledge.Data.Models;
+﻿using ForbiddenKnowledge.Data.DbModels;
 
 namespace ForbiddenKnowledge.Services
 {

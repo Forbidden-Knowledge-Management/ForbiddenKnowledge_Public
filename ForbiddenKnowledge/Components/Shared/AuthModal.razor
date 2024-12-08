@@ -1,0 +1,120 @@
+﻿@using ForbiddenKnowledge.Data
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+
+<div class="modal" style="display:@(ShowModal ? "block" : "none")">
+    <div class="modal-content">
+        <span class="close" @onclick="CloseModal">&times;</span>
+        <h3>@(IsLoginMode ? "Login" : "Register")</h3>
+
+        @if (IsLoginMode)
+        {
+            <EditForm Model="@LoginModel" OnValidSubmit="SubmitLogin">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <label>Pseudonym:</label>
+                <InputText id="Pseudonym" @bind-Value="LoginModel.Pseudonym" />
+                <ValidationMessage For="@(() => LoginModel.Pseudonym)" />
+
+                <label>Password:</label>
+                <InputText id="Password" @bind-Value="LoginModel.Password" InputType="password" />
+                <ValidationMessage For="@(() => LoginModel.Password)" />
+
+                <button type="submit">Login</button>
+            </EditForm>
+        }
+        else
+        {
+            <EditForm Model="@RegisterModel" OnValidSubmit="SubmitRegistration">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <label>Email:</label>
+                <InputText id="Email" @bind-Value="RegisterModel.Email" />
+                <ValidationMessage For="@(() => RegisterModel.Email)" />
+
+                <label>Password:</label>
+                <InputText id="Password" @bind-Value="RegisterModel.Password" InputType="password" />
+                <ValidationMessage For="@(() => RegisterModel.Password)" />
+
+                <label>Pseudonym:</label>
+                <InputText id="Pseudonym" @bind-Value="RegisterModel.Pseudonym" />
+                <ValidationMessage For="@(() => RegisterModel.Pseudonym)" />
+
+                <button type="submit">Register</button>
+            </EditForm>
+        }
+
+        <button @onclick="ToggleMode">@((IsLoginMode ? "Switch to Register" : "Switch to Login"))</button>
+    </div>
+</div>
+
+@code
+{
+    [Parameter] 
+    public bool ShowModal { get; set; }
+
+    [Parameter] 
+    public EventCallback<bool> ShowModalChanged { get; set; }
+
+    private bool IsLoginMode = true;
+
+    private LoginModel LoginModel = new();
+    private RegisterModel RegisterModel = new();
+
+
+    private async Task SubmitLogin()
+    {
+        HttpResponseMessage response = await HttpClient.PostAsJsonAsync($"{NavigationManager.BaseUri}api/users/login", LoginModel);
+        if (response.IsSuccessStatusCode)
+        {
+            UserInfo? userInfo = await response.Content.ReadFromJsonAsync<UserInfo>();
+            // Notify parent about successful login
+            await ShowModalChanged.InvokeAsync(false);
+        }
+        else
+        {
+            // Handle login failure
+        }
+    }
+
+    private async Task SubmitRegistration()
+    {
+        HttpResponseMessage response = await HttpClient.PostAsJsonAsync($"{NavigationManager.BaseUri}api/users/register", RegisterModel);
+        if (response.IsSuccessStatusCode)
+        {
+            // Notify parent about successful registration
+            await ShowModalChanged.InvokeAsync(false);
+        }
+        else
+        {
+            // Handle registration failure
+        }
+    }
+
+    private void ToggleMode()
+    {
+        IsLoginMode = !IsLoginMode;
+    }
+
+    private void CloseModal()
+    {
+        ShowModal = false;
+        ShowModalChanged.InvokeAsync(ShowModal);
+    }
+
+    private class UserInfo
+    {
+        public string Pseudonym { get; set; }
+    }
+}
+
+
+
+
+
+
+
+
+

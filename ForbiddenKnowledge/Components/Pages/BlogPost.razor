@@ -1,7 +1,9 @@
 ﻿@page "/blogposts/{blogPostId:int}"
-@using ForbiddenKnowledge.Data.Models
+@using ForbiddenKnowledge.Data.DbModels
+@using ForbiddenKnowledge.Services
 @inject NavigationManager NavigationManager
 @inject HttpClient HttpClient
+@inject AuthService AuthService
 
 <div>
     @if (isLoading)
@@ -69,6 +71,8 @@
 
             </div>
 
+            <AuthModal ShowModal="@ShowAuthModal" ShowModalChanged="OnModalStateChanged" />
+
         </div>
     }
     else
@@ -84,12 +88,14 @@
     [Parameter]
     public int BlogPostId { get; set; }
 
-    Data.Models.BlogPost? blogPost;
+    Data.DbModels.BlogPost? blogPost;
     private bool isLoading = true;
+
+    private bool ShowAuthModal = false;
 
     protected override async Task OnInitializedAsync()
     {
-        blogPost = await HttpClient.GetFromJsonAsync<Data.Models.BlogPost>($"{NavigationManager.BaseUri}api/blogposts/{BlogPostId}");
+        blogPost = await HttpClient.GetFromJsonAsync<Data.DbModels.BlogPost>($"{NavigationManager.BaseUri}api/blogposts/{BlogPostId}");
 
         if (blogPost != null && blogPost != default)
         {
@@ -117,4 +123,27 @@
     //         newCommentContent = string.Empty;
     //     }
     // }
+
+
+    private void OpenCommentModal()
+    {
+        if (!AuthService.IsAuthenticated)
+        {
+            ShowAuthModal = true;
+        }
+        else
+        {
+            // Proceed with showing the comment form
+        }
+    }
+
+
+
+    private void OnModalStateChanged(bool show)
+    {
+        ShowAuthModal = show;
+    }
+
+
+
 }

@@ -12,6 +12,7 @@ using ForbiddenKnowledge.Services.Audit;
 using ForbiddenKnowledge.Hubs;
 using ForbiddenKnowledge.Services;
 using ForbiddenKnowledge.Data.DbModels;
+using ForbiddenKnowledge.Services.Interfaces;
 
 var logger = NLog.LogManager.Setup().LoadConfigurationFromAppSettings().GetCurrentClassLogger();
 logger.Debug("init main");
@@ -71,18 +72,20 @@ try
     builder.Services.AddAuthentication(IdentityConstants.ApplicationScheme)
     .AddCookie(IdentityConstants.ApplicationScheme, options =>
     {
-        options.LoginPath = "/Account/Login";                   // Adjust as needed
+        options.LoginPath = "/Account/Login";                    // Adjust as needed
         options.LogoutPath = "/Account/Logout";
         options.ExpireTimeSpan = TimeSpan.FromDays(7);           // Cookie expiration
         options.SlidingExpiration = true;                        // Extend expiration on activity
         options.Cookie.HttpOnly = true;                          // Secure cookie
         options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // Only over HTTPS
-        options.Cookie.SameSite = SameSiteMode.Lax;             // Cross-site prevention
+        options.Cookie.SameSite = SameSiteMode.Lax;              // Cross-site prevention
     });
 
 
     //Custom Services
     builder.Services.AddScoped<IUserStore<User>, CustomUserStore>();
+    builder.Services.AddScoped<IUserService, UserService>();
+    builder.Services.AddScoped<AuthService>();
     builder.Services.AddScoped<IBlogPostService, BlogPostService>();
     //builder.Services.AddScoped<OrderState>();
 

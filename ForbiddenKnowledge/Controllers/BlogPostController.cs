@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 
-using ForbiddenKnowledge.Data.Models;
+using ForbiddenKnowledge.Data.DbModels;
 using ForbiddenKnowledge.Services;
 
 
