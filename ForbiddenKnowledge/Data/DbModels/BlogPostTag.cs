@@ -13,9 +13,6 @@ namespace ForbiddenKnowledge.Data.DbModels
 
         [Column("tag_id"), ForeignKey("BlogPostTagLookup")]
         public int TagId { get; set; }
-
-
-        // Navigation properties
         public required BlogPostTagLookup BlogPostTagLookup { get; set; }
     }
 }

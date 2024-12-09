@@ -85,7 +85,7 @@ try
     //Custom Services
     builder.Services.AddScoped<IUserStore<User>, CustomUserStore>();
     builder.Services.AddScoped<IUserService, UserService>();
-    builder.Services.AddScoped<AuthService>();
+    builder.Services.AddScoped<IAuthService, AuthService>();
     builder.Services.AddScoped<IBlogPostService, BlogPostService>();
     //builder.Services.AddScoped<OrderState>();
 

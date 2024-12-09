@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ForbiddenKnowledge.Data.DbModels
 {
-    [Table("user", Schema = "public")]
+    [Table("external_user", Schema = "public")]
     public class User
     {
         [Key]

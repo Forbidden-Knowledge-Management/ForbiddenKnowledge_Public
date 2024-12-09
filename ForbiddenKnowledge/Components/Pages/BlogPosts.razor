@@ -15,7 +15,7 @@
     else
     {
         <div class="list-group orders-list">
-            @foreach (Data.Models.BlogPost post in blogPosts)
+            @foreach (Data.DbModels.BlogPost post in blogPosts)
             {
                 <div class="blog-post-item">
                     <!-- Left Side: Image -->
@@ -53,11 +53,11 @@
 
 @code 
 {
-    List<Data.Models.BlogPost> blogPosts = new List<Data.Models.BlogPost>();
+    List<Data.DbModels.BlogPost> blogPosts = new List<Data.DbModels.BlogPost>();
 
     protected override async Task OnInitializedAsync()
     {
-        blogPosts = await HttpClient.GetFromJsonAsync<List<Data.Models.BlogPost>>($"{NavigationManager.BaseUri}api/blogposts");
+        blogPosts = await HttpClient.GetFromJsonAsync<List<Data.DbModels.BlogPost>>($"{NavigationManager.BaseUri}api/blogposts");
     }
 
 }

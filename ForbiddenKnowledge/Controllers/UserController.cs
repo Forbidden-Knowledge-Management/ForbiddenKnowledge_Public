@@ -47,21 +47,21 @@ namespace ForbiddenKnowledge.Controllers
                 return BadRequest(ModelState);
             }
 
-            var (succeeded, pseudonym) = await _userService.LoginUserAsync(model.Pseudonym, model.Password);
+            var (succeeded, error) = await _userService.LoginUserAsync(model.Pseudonym, model.Password);
 
             if (succeeded)
             {
-                return Ok(new { Pseudonym = pseudonym });
+                return Ok(new {Message = "Login successful"});
             }
 
-            return Unauthorized(new { Message = "Invalid login attempt." });
+            return Unauthorized(new { Message = $"Invalid login attempt: {error}" });
         }
 
         [HttpPost("logout")]
         public async Task<IActionResult> Logout()
         {
             await _userService.LogoutUserAsync();
-            return Ok(new { Message = "Logout successful." });
+            return Ok(new { Message = "Logout successful"});
         }
 
     }

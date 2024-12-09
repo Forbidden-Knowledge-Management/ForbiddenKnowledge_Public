@@ -1,4 +1,4 @@
-﻿using ForbiddenKnowledge.Model.Audit;
+﻿using ForbiddenKnowledge.Data.DbModels.Audit;
 using Microsoft.EntityFrameworkCore;
 
 namespace ForbiddenKnowledge.Data

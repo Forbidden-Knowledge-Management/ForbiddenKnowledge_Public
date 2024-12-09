@@ -1,6 +1,8 @@
 ﻿@using ForbiddenKnowledge.Data
+@using ForbiddenKnowledge.Services
 @inject HttpClient HttpClient
 @inject NavigationManager NavigationManager
+@inject AuthService authService
 
 <div class="modal" style="display:@(ShowModal ? "block" : "none")">
     <div class="modal-content">
@@ -66,10 +68,9 @@
 
     private async Task SubmitLogin()
     {
-        HttpResponseMessage response = await HttpClient.PostAsJsonAsync($"{NavigationManager.BaseUri}api/users/login", LoginModel);
-        if (response.IsSuccessStatusCode)
+        await authService.LoginFullAccountAsync(LoginModel);
+        if (authService.FullAccountAuthenticated == true)
         {
-            UserInfo? userInfo = await response.Content.ReadFromJsonAsync<UserInfo>();
             // Notify parent about successful login
             await ShowModalChanged.InvokeAsync(false);
         }
@@ -84,7 +85,7 @@
         HttpResponseMessage response = await HttpClient.PostAsJsonAsync($"{NavigationManager.BaseUri}api/users/register", RegisterModel);
         if (response.IsSuccessStatusCode)
         {
-            // Notify parent about successful registration
+            // Notify parent about successful login
             await ShowModalChanged.InvokeAsync(false);
         }
         else
@@ -102,11 +103,6 @@
     {
         ShowModal = false;
         ShowModalChanged.InvokeAsync(ShowModal);
-    }
-
-    private class UserInfo
-    {
-        public string Pseudonym { get; set; }
     }
 }
 

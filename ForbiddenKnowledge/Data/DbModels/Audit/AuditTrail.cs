@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
 using System.ComponentModel.DataAnnotations;
 
-namespace ForbiddenKnowledge.DbModels.Audit
+namespace ForbiddenKnowledge.Data.DbModels.Audit
 {
 
     [Table("audit_trail", Schema = "public")]

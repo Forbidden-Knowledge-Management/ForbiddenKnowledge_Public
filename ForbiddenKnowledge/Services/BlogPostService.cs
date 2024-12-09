@@ -39,6 +39,7 @@ namespace ForbiddenKnowledge.Services
                                                        .Include(p => p.Category)
                                                        .Include(p => p.BlogPostTags)
                                                            .ThenInclude(bpt => bpt.BlogPostTagLookup)
+                                                       .Include(p => p.BlogPostComments)
                                                        .FirstOrDefault(p => p.Id == blogPostId);
             if (post != null && post != default) 
             {

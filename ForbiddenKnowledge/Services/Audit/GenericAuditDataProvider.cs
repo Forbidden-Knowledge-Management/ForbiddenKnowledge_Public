@@ -2,7 +2,7 @@
 using Audit.WebApi;
 
 using ForbiddenKnowledge.Data;
-using ForbiddenKnowledge.Model.Audit;
+using ForbiddenKnowledge.Data.DbModels.Audit;
 
 namespace ForbiddenKnowledge.Services.Audit
 {

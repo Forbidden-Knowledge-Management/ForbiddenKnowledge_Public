@@ -1,9 +1,9 @@
 ﻿@page "/blogposts/{blogPostId:int}"
 @using ForbiddenKnowledge.Data.DbModels
-@using ForbiddenKnowledge.Services
+@using ForbiddenKnowledge.Services.Interfaces
 @inject NavigationManager NavigationManager
 @inject HttpClient HttpClient
-@inject AuthService AuthService
+@inject IAuthService authService
 
 <div>
     @if (isLoading)
@@ -69,6 +69,68 @@
             @* comments section here *@
             <div id="comments" class="comments-section">
 
+                <h4>Comments</h4>
+                @* Render existing comments *@
+                @foreach (var comment in blogPost.BlogPostComments)
+                {
+                    <div class="comment">
+                        <p><strong>@comment.Pseudonym</strong> @comment.CreatedAt.ToString("MMMM dd, yyyy hh:mm tt")</p>
+                        <p>@comment.Content</p>
+                    </div>
+                }
+
+                @* Form to submit a new comment *@
+                <div class="new-comment-form">
+                    <h5>Add a Comment</h5>
+
+                    @if (!authService.FullAccountAuthenticated || useLighweightAccountToComment == false)
+                    {
+                        <p>
+                            In order to encourage discussion, comments may be made anonymously without creating an account.
+                            However, due to the serious nature of the disscussions that take place on Forbidden Knowledge, all users who make comments require a unique pseudonym.
+                            There are two reasons for this. First, it makes it possible to identify comments made by the same person. Second, it prevents users from impersonating each other.
+                            We encourage users who plan on making more than one comment to first make an account.
+                            However, if you choose to make a comment without making an account, the system will generate a generic pseudonym for you and save a cookie to your device so you can be recognized in the future.
+                            If the cookie is deleted from your device, that identity will be lost, and if you make another comment the system will generate a new generic pseudonym for you.
+                        </p>
+
+                        <p>
+                            Users who intend on making multiple comments are encouraged to create an account.
+                            Creating an account allows you to select your own pseudonym and securely persist it without relying on cookies.
+                            Account creation is simple and requires only a password and an email address.
+                            The email address is strictly only used for password resets. We do not share user information with anyone.
+                            We do not record the IP addresses used with a particular account.
+                            We are not interested in knowing who users are in real life.
+                            User accounts are only in place so that comments can be identifiable.
+                        </p>
+
+                        <p>
+                            If you decide to make an account after making comments with a generic, system-provided pseudonym, your existing comments will automatically update to appear with your new pseudonym.
+                        </p>
+
+                        <span>You are not logged in. Choose one of the options below to comment:</span>
+
+                        <ul>
+                            <li><button @onclick="OpenAuthModal">Login to account or register a new account</button></li>
+                            <li>
+                                @if (authService.LightWeightAccountAuthenticated)
+                                {
+                                    <button @onclick="UseExistingLightweightAccount">Comment without an account using existing pseudonym (@authService.Pseudonym)</button>
+                                }
+                                else
+                                {
+                                    <button @onclick="CreateLightWeightAccount">Comment without an account</button>
+                                }
+                            </li>
+                        </ul>
+                    }
+                    else
+                    {
+                        <textarea placeholder="Write your comment here..." class="comment-text" @bind="newCommentContent"></textarea>
+                        <button @onclick="SubmitComment">Submit Comment</button>
+                    }
+                </div>
+
             </div>
 
             <AuthModal ShowModal="@ShowAuthModal" ShowModalChanged="OnModalStateChanged" />
@@ -92,6 +154,9 @@
     private bool isLoading = true;
 
     private bool ShowAuthModal = false;
+    private bool useLighweightAccountToComment = false;
+
+    private string newCommentContent = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -101,43 +166,45 @@
         {
             isLoading = false;
         }
+
+        // Check if the user has a lightweight account (cookie present)
+        await authService.TryRetrieveLightweightAccountAsync();
     }
 
-    // private async Task SubmitComment()
-    // {
-    //     if (!string.IsNullOrWhiteSpace(newCommentContent))
-    //     {
-    //         var newComment = new Comment
-    //             {
-    //                 UserName = newCommentName,
-    //                 Content = newCommentContent,
-    //                 PostedAt = DateTime.Now
-    //             };
-    //         blogPost.Comments.Add(newComment);
-
-    //         // Save to the database or API (requires backend handling)
-    //         await HttpClient.PostAsJsonAsync($"{NavigationManager.BaseUri}blogposts/{BlogPostId}/comments", newComment);
-
-    //         // Clear the form
-    //         newCommentName = string.Empty;
-    //         newCommentContent = string.Empty;
-    //     }
-    // }
-
-
-    private void OpenCommentModal()
+    private async Task SubmitComment()
     {
-        if (!AuthService.IsAuthenticated)
+        if (!string.IsNullOrWhiteSpace(newCommentContent) && newCommentContent.Length > 4)
         {
-            ShowAuthModal = true;
-        }
-        else
-        {
-            // Proceed with showing the comment form
+            BlogPostComment newComment = new BlogPostComment
+            {
+                Pseudonym = authService.Pseudonym,
+                Content = newCommentContent,
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now
+            };
+
+            await HttpClient.PostAsJsonAsync($"{NavigationManager.BaseUri}api/blogposts/{BlogPostId}/comments", newComment);
+
+            // Clear the form
+            newCommentContent = string.Empty;
         }
     }
 
+    private async Task CreateLightWeightAccount()
+    {
+        await authService.CreateLightweightAccountIdentityAsync();
+    }
 
+    private void UseExistingLightweightAccount()
+    {
+        // Use the existing pseudonym for commenting
+        useLighweightAccountToComment = true;
+    }
+
+    private void OpenAuthModal()
+    {
+        ShowAuthModal = true;
+    }
 
     private void OnModalStateChanged(bool show)
     {

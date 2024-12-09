@@ -59,6 +59,8 @@ namespace ForbiddenKnowledge.Data.DbModels
         public string ImagePath => $"img/blog/{Filename}.png";
 
         // Navigation property
-        public List<BlogPostTag> BlogPostTags { get; set; }
+        public List<BlogPostTag> BlogPostTags { get; set; } = new List<BlogPostTag>();
+
+        public List<BlogPostComment> BlogPostComments { get; set; } = new List<BlogPostComment>();
     }
 }
