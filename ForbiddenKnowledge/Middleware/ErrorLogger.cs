@@ -20,7 +20,16 @@
 			catch (Exception ex)
 			{
 				LogError(ex);
-				throw; // Re-throw the exception to be handled by other middleware or error handling pages
+
+                // If it's a Blazor request (SignalR/WebSocket), don't break the connection
+                if (context.WebSockets.IsWebSocketRequest)
+                {
+                    _logger.LogError("Blazor WebSocket error detected. Preventing crash.");
+                    return; // Do NOT rethrow or return an HTTP response for WebSockets
+                }
+
+                // For a normal HTTP request, re-throw the exception to be handled by other middleware or error handling pages
+                throw; 
 			}
 		}
 

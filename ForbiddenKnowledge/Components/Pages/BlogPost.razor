@@ -1,11 +1,15 @@
 ﻿@page "/blogposts/{blogPostId:int}"
+@rendermode InteractiveServer
+@using ForbiddenKnowledge.Components.Shared
 @using ForbiddenKnowledge.Data.DbModels
-@using ForbiddenKnowledge.Services.Interfaces
+@using ForbiddenKnowledge.Services
+@inject ILogger<BlogPost> _logger
 @inject NavigationManager NavigationManager
 @inject HttpClient HttpClient
 @inject IAuthService authService
 
 <div>
+
     @if (isLoading)
     {
         <p>Loading...</p>
@@ -30,7 +34,7 @@
                     }
                 </span>
                 <span class="author-info">
-                    by: <span class="scroll-to-author" onclick="document.getElementById('author-bio').scrollIntoView({ behavior: 'smooth' })">@blogPost.Author.Name</span> | published @blogPost.PublishedDateTime.ToString("MMMM dd, yyyy")
+                    by: <span class="scroll-to-author" onclick="document.getElementById('author-bio').scrollIntoView({ behavior: 'smooth' })">@blogPost.Author.Name</span> | Published @blogPost.PublishedDateTime.ToString("MMMM dd, yyyy")
                 </span>
             </div>
 
@@ -65,6 +69,8 @@
                     <p>@blogPost.Author.Biography</p>
                 </div>
             </div>
+
+            <hr class="divider" />
 
             @* comments section here *@
             <div id="comments" class="comments-section">
@@ -115,11 +121,11 @@
                             <li>
                                 @if (authService.LightWeightAccountAuthenticated)
                                 {
-                                    <button @onclick="UseExistingLightweightAccount">Comment without an account using existing pseudonym (@authService.Pseudonym)</button>
+                                    <button type="button" @onclick="UseExistingLightweightAccount">Comment without an account using existing pseudonym (@authService.Pseudonym)</button>
                                 }
                                 else
                                 {
-                                    <button @onclick="CreateLightWeightAccount">Comment without an account</button>
+                                    <button type="button" @onclick="CreateLightWeightAccount">Comment without an account</button>
                                 }
                             </li>
                         </ul>
@@ -158,17 +164,26 @@
 
     private string newCommentContent = string.Empty;
 
+    private int renderCounter = 0;
+
     protected override async Task OnInitializedAsync()
     {
-        blogPost = await HttpClient.GetFromJsonAsync<Data.DbModels.BlogPost>($"{NavigationManager.BaseUri}api/blogposts/{BlogPostId}");
-
-        if (blogPost != null && blogPost != default)
+        try
         {
-            isLoading = false;
-        }
+            blogPost = await HttpClient.GetFromJsonAsync<Data.DbModels.BlogPost>($"{NavigationManager.BaseUri}api/blogposts/{BlogPostId}");
 
-        // Check if the user has a lightweight account (cookie present)
-        await authService.TryRetrieveLightweightAccountAsync();
+            if (blogPost != null && blogPost != default)
+            {
+                isLoading = false;
+            }
+
+            // Check if the user has a lightweight account (cookie present)
+            await authService.TryRetrieveLightweightAccountAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading blog post");
+        }
     }
 
     private async Task SubmitComment()
@@ -190,26 +205,31 @@
         }
     }
 
-    private async Task CreateLightWeightAccount()
+    async Task CreateLightWeightAccount()
     {
         await authService.CreateLightweightAccountIdentityAsync();
+        useLighweightAccountToComment = true;
+        StateHasChanged();
     }
 
     private void UseExistingLightweightAccount()
     {
         // Use the existing pseudonym for commenting
         useLighweightAccountToComment = true;
+        StateHasChanged();
     }
 
-    private void OpenAuthModal()
+    private async Task OpenAuthModal()
     {
         ShowAuthModal = true;
+        await InvokeAsync(StateHasChanged);
     }
 
     private void OnModalStateChanged(bool show)
     {
         ShowAuthModal = show;
     }
+
 
 
 

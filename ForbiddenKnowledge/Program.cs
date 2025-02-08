@@ -12,7 +12,7 @@ using ForbiddenKnowledge.Services.Audit;
 using ForbiddenKnowledge.Hubs;
 using ForbiddenKnowledge.Services;
 using ForbiddenKnowledge.Data.DbModels;
-using ForbiddenKnowledge.Services.Interfaces;
+using Audit.Core;
 
 var logger = NLog.LogManager.Setup().LoadConfigurationFromAppSettings().GetCurrentClassLogger();
 logger.Debug("init main");
@@ -45,15 +45,14 @@ try
     //We also need to make the separate DBContext for the audit logs
     builder.Services.AddDbContext<AuditDbContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("ForbiddenKnowledgeContext")), ServiceLifetime.Scoped);
 
-    //services needed by the balzor web stack
-    builder.Services.AddAntiforgery(o => o.HeaderName = "XSRF-TOKEN");
-    builder.Services.AddRazorComponents()
-        .AddInteractiveServerComponents();
-    builder.Services.AddRazorPages();
-    builder.Services.AddServerSideBlazor();
-    builder.Services.AddHttpClient();
+    // services needed by the blazor web stack
+    // The antiforgery service is not needed for Blazor. SignalR connections are not vulnerable to CSRF attacks like tradtional HTTP requests.
+
+    builder.Services.AddRazorComponents().AddInteractiveServerComponents();      // Needed for Blazor components
+    builder.Services.AddControllers();          // Enables API controllers
+    builder.Services.AddHttpClient();           // For making HTTP requests to the API controller backend 
     builder.Services.AddHttpContextAccessor();
-    builder.Services.AddSignalR(); // Add SignalR services. needed for SignalR logging.
+    builder.Services.AddSignalR();              // Add SignalR services. needed for SignalR logging.
 
     //.NET Identity Core Auth
     builder.Services.AddIdentityCore<User>(options =>
@@ -81,6 +80,13 @@ try
         options.Cookie.SameSite = SameSiteMode.Lax;              // Cross-site prevention
     });
 
+    //services for the audit DB context. this ensures DB concurrency issues don't occur.
+    builder.Services.AddScoped<GenericAuditDataProvider>();
+    builder.Services.AddSingleton<AuditDataProvider>(sp =>
+    {
+        var scopeFactory = sp.GetRequiredService<IServiceScopeFactory>();
+        return new GenericAuditDataProvider(scopeFactory);
+    });
 
     //Custom Services
     builder.Services.AddScoped<IUserStore<User>, CustomUserStore>();
@@ -97,7 +103,8 @@ try
     app.UseMiddleware<ForbiddenKnowledge.Middleware.ErrorLogger>();
 
     // Configure Audit.NET to use our custom data provider
-    Audit.Core.Configuration.DataProvider = new GenericAuditDataProvider(app.Services.CreateScope().ServiceProvider.GetService<AuditDbContext>());
+    //Audit.Core.Configuration.DataProvider = new GenericAuditDataProvider(app.Services.CreateScope().ServiceProvider.GetService<AuditDbContext>());
+    Audit.Core.Configuration.DataProvider = builder.Services.BuildServiceProvider().GetRequiredService<AuditDataProvider>();
 
     // Configure the HTTP request pipeline.
     if (!app.Environment.IsDevelopment())
@@ -111,22 +118,21 @@ try
         app.UseDeveloperExceptionPage();
     }
 
-    app.UseAuthentication();
-    app.UseAuthorization();
+    //The order that middleware is added is important.
+    //The order below is correct. Https redirection, static files, and routing come first, then authentication and authorization.
     app.UseHttpsRedirection();
     app.UseStaticFiles();
-    app.UseRouting();
     app.UseAntiforgery();
-
-    app.MapRazorComponents<App>()
-        .AddInteractiveServerRenderMode();
+    //app.UseRouting();
+    app.UseAuthentication();
+    app.UseAuthorization();
 
     app.UseForwardedHeaders(new ForwardedHeadersOptions
     {
         ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
     });
 
-    // Add Audit.NET middleware to audit all requests
+    //Add Audit.NET middleware to audit all requests
     app.UseAuditMiddleware(config => config
      .FilterByRequest(req => !req.Path.StartsWithSegments("/health")) // Ignore health check requests
      .WithEventType("{verb}:{url}") // Custom event type including HTTP verb and URL
@@ -136,15 +142,13 @@ try
      .IncludeResponseHeaders() // Optionally include response headers
     );
 
-    app.MapRazorPages();
-    app.MapBlazorHub();
-    app.MapHub<LoggingHub>("/logginghub"); //This is needed to log SignalR activity
-    //app.MapFallbackToPage("/_Host");
-    app.MapControllerRoute("default", "{controller=Home}/{action=Index}/{id?}");
+    //app.MapRazorPages();
+    app.MapControllers();               // Maps API controllers
+    app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 
+    app.MapHub<LoggingHub>("/logginghub"); //This is needed to log SignalR activity
 
     app.Run();
-
 }
 catch (Exception e)
 {

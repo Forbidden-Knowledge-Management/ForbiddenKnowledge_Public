@@ -8,18 +8,21 @@ namespace ForbiddenKnowledge.Services.Audit
 {
 	public class GenericAuditDataProvider : AuditDataProvider
 	{
-		private readonly AuditDbContext _auditDbContext;
+        private readonly IServiceScopeFactory _scopeFactory;
 
-		public GenericAuditDataProvider(AuditDbContext auditDbContext)
+		public GenericAuditDataProvider(IServiceScopeFactory scopeFactory)
 		{
-			_auditDbContext = auditDbContext;
+            _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
 		}
 
         public override object InsertEvent(AuditEvent auditEvent)
         {
+            using var scope = _scopeFactory.CreateScope();
+            AuditDbContext auditDbContext = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
+
             AuditTrail _auditTrail = ConvertToAuditTrail(auditEvent);
-            _auditDbContext.AuditTrails.Add(_auditTrail);
-            _auditDbContext.SaveChangesAsync();
+            auditDbContext.AuditTrails.Add(_auditTrail);
+            auditDbContext.SaveChanges();
             return _auditTrail.Id;
         }
 

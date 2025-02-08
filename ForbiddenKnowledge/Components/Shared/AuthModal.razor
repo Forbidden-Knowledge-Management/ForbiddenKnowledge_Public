@@ -2,7 +2,7 @@
 @using ForbiddenKnowledge.Services
 @inject HttpClient HttpClient
 @inject NavigationManager NavigationManager
-@inject AuthService authService
+@inject IAuthService authService
 
 <div class="modal" style="display:@(ShowModal ? "block" : "none")">
     <div class="modal-content">

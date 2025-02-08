@@ -1,6 +1,6 @@
 ﻿using ForbiddenKnowledge.Data;
 
-namespace ForbiddenKnowledge.Services.Interfaces
+namespace ForbiddenKnowledge.Services
 {
     public interface IAuthService
     {
@@ -14,7 +14,7 @@ namespace ForbiddenKnowledge.Services.Interfaces
 
         Task CreateLightweightAccountIdentityAsync();
 
-        Task<bool> TryRetrieveLightweightAccountAsync();
+        Task TryRetrieveLightweightAccountAsync();
 
 
 

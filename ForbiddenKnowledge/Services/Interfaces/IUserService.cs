@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity;
 
-namespace ForbiddenKnowledge.Services.Interfaces
+namespace ForbiddenKnowledge.Services
 {
     public interface IUserService
     {

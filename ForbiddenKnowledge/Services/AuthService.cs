@@ -1,5 +1,4 @@
 ﻿using ForbiddenKnowledge.Data;
-using ForbiddenKnowledge.Services.Interfaces;
 
 namespace ForbiddenKnowledge.Services
 {
@@ -53,36 +52,40 @@ namespace ForbiddenKnowledge.Services
         public async Task CreateLightweightAccountIdentityAsync()
         {
             Pseudonym = $"AnonymousUser{Guid.NewGuid().ToString("N").Substring(0, 8)}";
-            HttpResponse? response = _httpContextAccessor.HttpContext?.Response;
-            response?.Cookies.Append(LightweightAccountCookieName, Pseudonym!, new CookieOptions
-            {
-                Expires = DateTimeOffset.UtcNow.AddYears(1),
-                HttpOnly = true,
-                IsEssential = true
-            });
-
             var (succeeded, errors) = await _userService.RegisterUserAsync(Pseudonym, null, null);
+            if (succeeded)
+            {
+                HttpResponse? response = _httpContextAccessor.HttpContext?.Response;
+                response?.Cookies.Append(LightweightAccountCookieName, Pseudonym!, new CookieOptions
+                {
+                    Expires = DateTimeOffset.UtcNow.AddYears(1),
+                    HttpOnly = true,
+                    IsEssential = true
+                });
+                LightWeightAccountAuthenticated = true;
+            }
         }
 
-        public async Task<bool> TryRetrieveLightweightAccountAsync()
+        public async Task TryRetrieveLightweightAccountAsync()
         {
             var request = _httpContextAccessor.HttpContext?.Request;
-
             if (request?.Cookies.TryGetValue(LightweightAccountCookieName, out var pseudonym) == true)
             {
                 if (_forbiddenKnowledgeContext.Users.Any(u => u.Pseudonym == pseudonym) == true)
                 {
                     Pseudonym = pseudonym;
                     LightWeightAccountAuthenticated = true;
-                    return true;
+
                 }
                 else
                 {
-                    return false;
+                    LightWeightAccountAuthenticated = false;
                 }
             }
-
-            return false;
+            else
+            {
+                LightWeightAccountAuthenticated = false;
+            }
         }
 
 
