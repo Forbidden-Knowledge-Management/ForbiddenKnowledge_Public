@@ -13,23 +13,25 @@ namespace ForbiddenKnowledge.Controllers
     [ApiController]
     public class UserController : Controller
     {
-        private readonly UserService _userService;
+        private readonly IUserService _userService;
 
-        public UserController(UserService userService)
+        private const string LightweightAccountCookieName = "fk_lightweight_user";
+
+        public UserController(IUserService userService)
         {
             _userService = userService;
         }
 
 
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] RegisterModel model)
+        public async Task<IActionResult> Register([FromBody] RegisterModel registerModel)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            var (succeeded, errors) = await _userService.RegisterUserAsync(model.Pseudonym, model.Email, model.Password);
+            var (succeeded, errors) = await _userService.RegisterUserAsync(registerModel.Pseudonym, registerModel.Email, registerModel.Password);
 
             if (succeeded)
             {
@@ -40,14 +42,14 @@ namespace ForbiddenKnowledge.Controllers
         }
 
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginModel model)
+        public async Task<IActionResult> Login([FromBody] LoginModel loginModel)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            var (succeeded, error) = await _userService.LoginUserAsync(model.Pseudonym, model.Password);
+            var (succeeded, error) = await _userService.LoginUserAsync(loginModel.Pseudonym, loginModel.Password);
 
             if (succeeded)
             {
@@ -62,6 +64,37 @@ namespace ForbiddenKnowledge.Controllers
         {
             await _userService.LogoutUserAsync();
             return Ok(new { Message = "Logout successful"});
+        }
+
+
+        [HttpPost("lightweight-account")]
+        public async Task<IActionResult> CreateLightweightAccount()
+        {
+            HttpContext httpContext = HttpContext;
+            string ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
+
+            // Check rate limit using audit logs
+            if (await _userService.IsRateLimitedForLightweightAccounts(ipAddress))
+            {
+                return BadRequest("Too many lightweight accounts created from this IP. Try again later.");
+            }
+
+            string pseudonym = $"ANONYMOUSUSER{Guid.NewGuid().ToString("N").Substring(0, 8)}".ToUpperInvariant();
+            var (succeeded, errors) = await _userService.RegisterUserAsync(pseudonym, null, null);
+
+            if (!succeeded)
+            {
+                return BadRequest(errors);
+            }
+
+            Response?.Cookies.Append(LightweightAccountCookieName, pseudonym!, new CookieOptions
+            {
+                Expires = DateTimeOffset.UtcNow.AddYears(1),
+                HttpOnly = true,
+                IsEssential = true
+            });
+
+            return Ok(new { Pseudonym = pseudonym });
         }
 
     }

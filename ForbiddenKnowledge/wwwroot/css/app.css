@@ -56,7 +56,6 @@ footer {
 
 .blog-post-link {
     text-decoration: none;
-    color: #333;
 }
 
 /* Meta information styling (author and published time) */
@@ -127,7 +126,7 @@ footer {
 
 .author-bio-text {
     font-size: 1em;
-    color: #555;
+    /*color: #555;*/
     line-height: 1.5;
 }
 
@@ -163,18 +162,74 @@ blockquote p {
     margin: 0; /* Prevent extra spacing inside the blockquote */
 }
 
-
-.comments-section
-{
-
-
-
+.new-comment-form {
+    margin-bottom: 7px;
 
 }
 
+.comment-buttons-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 15px;
+}
 
+.comment-button {
+    width: 350px;
+}
 
+.no-bottom-margin {
+    margin-bottom: 0;
+}
 
+.comment-header {
+    margin-bottom: 10px;
+}
+
+.comments-section {
+}
+
+.comment {
+    background-color: #607D8B; /* Light gray bubble */
+    padding: 15px;
+    border-radius: 12px; /* Rounded edges for a bubble effect */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+    margin-bottom: 15px; /* Adds vertical space between comments */
+    max-width: 600px; /* Optional: Prevents overly wide bubbles */
+    word-wrap: break-word; /* Ensures long words break properly */
+}
+
+.comment-header {
+    font-weight: bold;
+    margin-bottom: 5px; /* Adds space between the header and content */
+}
+
+.comment-content {
+    margin-top: 10px; /* Adds space between header and comment content */
+    line-height: 1.4; /* Improves readability */
+}
+
+.comment-text {
+    margin-bottom: 5px;
+}
+
+.comment-input-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: start;
+}
+
+.error-message{
+
+    color: red;
+}
+
+.label {
+    color: #333;
+    /*margin-right: 5px;*/
+    width: 100px;
+    text-align: right;
+}
 
 
 /* Popup Styling */
@@ -191,12 +246,18 @@ blockquote p {
 }
 
 .modal-content {
-    background-color: white;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #777;
     padding: 20px;
     border-radius: 8px;
-    max-width: 400px;
-    width: 100%;
-    position: relative;
+    max-width: 80%;
+    width: 600px;
+    /*position: relative;*/
+    text-align: center;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .close {
@@ -206,6 +267,84 @@ blockquote p {
     font-size: 1.5rem;
     cursor: pointer;
 }
+
+.blue-button {
+    padding: 10px 15px;
+    border: none;
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.blue-button:hover {
+    background-color: #0056b3;
+}
+
+.register-login-switch-button {
+    width: 175px;
+    align-self: flex-end;
+    margin-top: 10px;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 7px;
+
+}
+
+.form-item {
+    display: flex;
+    flex-direction: row;
+    margin-left: 45px;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 5px;
+    width: 100%;
+}
+
+.form-input {
+    width: 350px;
+    /*    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;*/
+}
+
+.password-form-input {
+    width: 350px;
+    padding-right: 35px; /* Space for the eye icon */
+    /*    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;*/
+}
+
+.password-container {
+    display: flex;
+    align-items: center;
+    gap: 5px; /* Space between input and button */
+}
+
+.toggle-password {
+    background: none;
+    border: none;
+    cursor: pointer;
+    position: absolute;
+    right: 75px;
+    padding: 7px;
+    color: #444;
+    font-size: 16px;
+}
+
+.toggle-password i {
+    font-size: 20px; /* Make the eye icon larger */
+}
+
+.toggle-password:hover {
+    color: #007bff;
+}
+
 
 
 

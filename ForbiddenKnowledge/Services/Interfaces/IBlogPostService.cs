@@ -8,6 +8,8 @@ namespace ForbiddenKnowledge.Services
 
         Task<BlogPost?> GetBlogPostById(int blogPostId);
 
+        Task<(bool Succeeded, string? Error)> SubmitNewComment(BlogPostComment blogPostComment);
+
 
 
 

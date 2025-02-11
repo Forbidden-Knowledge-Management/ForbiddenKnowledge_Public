@@ -1,20 +1,22 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using System.Data;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 
 using ForbiddenKnowledge.Data.DbModels;
-using System.Data.Common;
 
 namespace ForbiddenKnowledge.Data
 {
     public class CustomUserStore : IUserStore<User>, IUserPasswordStore<User>
     {
         private readonly ForbiddenKnowledgeContext _forbiddenKnowledgeContext;
+        private readonly ILogger<CustomUserStore> _logger;
 
 
-        public CustomUserStore(ForbiddenKnowledgeContext forbiddenKnowledgeContext)
+        public CustomUserStore(ForbiddenKnowledgeContext forbiddenKnowledgeContext, ILogger<CustomUserStore> logger)
         {
             _forbiddenKnowledgeContext = forbiddenKnowledgeContext;
+            _logger = logger;
         }
 
         //Please note that this method in the IUserStore interface is defined with a string as the first param
@@ -28,14 +30,14 @@ namespace ForbiddenKnowledge.Data
         {
             return await _forbiddenKnowledgeContext.Users
                         .AsNoTracking()
-                        .FirstOrDefaultAsync(u => u.Pseudonym.ToUpperInvariant() == name.ToUpperInvariant(), cancellationToken);
+                        .FirstOrDefaultAsync(u => u.Pseudonym == name.ToUpper(), cancellationToken);
         }
 
         public async Task<User?> FindByEmailAsync(string email, CancellationToken cancellationToken)
         {
             return await _forbiddenKnowledgeContext.Users
                         .AsNoTracking()
-                        .FirstOrDefaultAsync(u => u.Email.ToUpperInvariant() == email.ToUpperInvariant(), cancellationToken);
+                        .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
         }
 
         public Task<string> GetUserIdAsync(User user, CancellationToken cancellationToken)
@@ -50,10 +52,9 @@ namespace ForbiddenKnowledge.Data
 
         public Task<string> GetNormalizedUserNameAsync(User user, CancellationToken cancellationToken)
         {
-            return Task.FromResult(user.Pseudonym.ToUpperInvariant());
+            return Task.FromResult(user.Pseudonym);
         }
 
-        //ZM to-do: modify this to ensure it is unique
         public Task SetUserNameAsync(User user, string userName, CancellationToken cancellationToken)
         {
             user.Pseudonym = userName;
@@ -62,7 +63,7 @@ namespace ForbiddenKnowledge.Data
 
         public Task SetNormalizedUserNameAsync(User user, string normalizedName, CancellationToken cancellationToken)
         {
-            // Not needed as NormalizedEmail is computed dynamically
+            user.Pseudonym = normalizedName; // Don't force uppercase
             return Task.CompletedTask;
         }
 
@@ -70,12 +71,17 @@ namespace ForbiddenKnowledge.Data
         {
             try
             {
-                await _forbiddenKnowledgeContext.Users.AddAsync(user, cancellationToken);
-                await _forbiddenKnowledgeContext.SaveChangesAsync(cancellationToken);
+                //Weird situation here.
+                //When _userManager.CreateAsync() is called, .NET Identity will already execute an INSERT command against the DB before this method even runs.
+                //so, if we attempt to add the new user to the DB ourselves via EF, we will get a PK violation because it is a duplicate.
+                //However, the IUserStore interface requires us to have a CreateAsync method
+                //So we simply just return a success result here.
+                _logger.LogInformation("CreateAsync in CustomUserStore called, but skipping manual insertion due to .NET Identity behavior.");
                 return IdentityResult.Success;
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error creating user {Pseudonym}", user.Pseudonym);
                 return IdentityResult.Failed(new IdentityError { Description = ex.Message });
             }
         }

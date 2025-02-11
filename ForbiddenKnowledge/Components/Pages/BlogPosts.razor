@@ -19,7 +19,9 @@
             {
                 <div class="blog-post-item">
                     <!-- Left Side: Image -->
-                    <img src="@($"{NavigationManager.BaseUri}{post.ImagePath}")" alt="Post image" class="blog-post-image" />
+                    <a href="@($"blogposts/{post.Id}")">
+                        <img src="@($"{NavigationManager.BaseUri}{post.ImagePath}")" alt="Post image" class="blog-post-image" />
+                    </a>
 
                     <!-- Right Side: Content -->
                     <div class="content">
@@ -32,7 +34,7 @@
 
                         <!-- Author and Published Time -->
                         <p class="blog-post-meta">
-                            By @post.Author.Name published @post.PublishedDateTime.ToString("g")
+                            By @post.Author.Name | Published @post.PublishedDateTime.ToString("MMMM dd, yyyy")
                         </p>
 
                         <!-- Excerpt or Description (optional) -->

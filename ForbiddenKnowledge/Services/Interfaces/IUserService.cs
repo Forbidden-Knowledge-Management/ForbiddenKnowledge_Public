@@ -10,6 +10,11 @@ namespace ForbiddenKnowledge.Services
 
         Task LogoutUserAsync();
 
+        Task<bool> IsRateLimitedForLightweightAccounts(string ipAddress);
+
+
+
+
 
 
 

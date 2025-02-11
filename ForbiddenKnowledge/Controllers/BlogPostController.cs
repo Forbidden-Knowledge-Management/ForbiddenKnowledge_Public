@@ -2,6 +2,7 @@
 
 using ForbiddenKnowledge.Data.DbModels;
 using ForbiddenKnowledge.Services;
+using ForbiddenKnowledge.Data.DTOs;
 
 
 namespace ForbiddenKnowledge.Controllers
@@ -37,7 +38,27 @@ namespace ForbiddenKnowledge.Controllers
             return post;
         }
 
+        [HttpPost("submit-comment")]
+        public async Task<IActionResult> SubmitNewComment([FromBody] SubmitCommentDto newCommentDto)
+        {
+            BlogPostComment newComment = new BlogPostComment
+            {
+                BlogPostId  = newCommentDto.BlogPostId,
+                Pseudonym   = newCommentDto.Pseudonym.ToUpperInvariant(),
+                Content     = newCommentDto.Content,
+                CreatedAt   = DateTime.UtcNow,
+                UpdatedAt   = DateTime.UtcNow
+            };
 
-
+            var (succeeded, error) = await _blogPostService.SubmitNewComment(newComment);
+            if (succeeded)
+            {
+                return Ok(new { message = "Comment submitted successfully." });
+            }
+            else
+            {
+                return BadRequest(new { error });
+            }
+        }
     }
 }

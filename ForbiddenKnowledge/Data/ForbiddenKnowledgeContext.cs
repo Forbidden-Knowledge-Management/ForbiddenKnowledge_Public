@@ -34,11 +34,6 @@ namespace ForbiddenKnowledge.Data
             {
                 entity.HasKey(e => e.Id);
 
-                entity.HasOne(e => e.BlogPost)
-                      .WithMany(bp => bp.BlogPostComments)
-                      .HasForeignKey(e => e.BlogPostId)
-                      .OnDelete(DeleteBehavior.Cascade);
-
                 entity.HasOne(e => e.User)
                       .WithMany()
                       .HasForeignKey(e => e.Pseudonym)

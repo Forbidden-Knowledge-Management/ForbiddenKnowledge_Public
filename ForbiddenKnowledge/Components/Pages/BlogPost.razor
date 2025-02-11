@@ -61,12 +61,12 @@
                     <img src="@blogPost.Author.ImagePath" alt="@blogPost.Author.Name" class="author-image" />
                     <div class="author-details">
                         <p><strong>@blogPost.Author.Name</strong></p>
-                        <p><a href="mailto:@blogPost.Author.Email">@blogPost.Author.Email</a></p>
+                        <p><a href="mailto:@blogPost.Author.Email">@blogPost.Author.Email.ToLowerInvariant()</a></p>
                     </div>
                 </div>
 
                 <div class="author-bio-text">
-                    <p>@blogPost.Author.Biography</p>
+                    <p class="no-bottom-margin">@blogPost.Author.Biography</p>
                 </div>
             </div>
 
@@ -75,21 +75,27 @@
             @* comments section here *@
             <div id="comments" class="comments-section">
 
-                <h4>Comments</h4>
+                <h4 class="comment-header">Comments</h4>
                 @* Render existing comments *@
                 @foreach (var comment in blogPost.BlogPostComments)
                 {
                     <div class="comment">
-                        <p><strong>@comment.Pseudonym</strong> @comment.CreatedAt.ToString("MMMM dd, yyyy hh:mm tt")</p>
-                        <p>@comment.Content</p>
+                        <div class="comment-header">
+                            @comment.Pseudonym @comment.CreatedAt.ToString("MMMM dd, yyyy hh:mm tt")
+                        </div>
+                        <div class="comment-content">
+                            <p>@(new MarkupString(System.Net.WebUtility.HtmlEncode(comment.Content)))</p>   @* Prevents stored XSS attacks that may be in comments*@
+                        </div>
                     </div>
                 }
+
+                <hr class="divider" />
 
                 @* Form to submit a new comment *@
                 <div class="new-comment-form">
                     <h5>Add a Comment</h5>
 
-                    @if (!authService.FullAccountAuthenticated || useLighweightAccountToComment == false)
+                    @if (authService.FullAccountAuthenticated == false && useLighweightAccountToComment == false)
                     {
                         <p>
                             In order to encourage discussion, comments may be made anonymously without creating an account.
@@ -116,24 +122,29 @@
 
                         <span>You are not logged in. Choose one of the options below to comment:</span>
 
-                        <ul>
-                            <li><button @onclick="OpenAuthModal">Login to account or register a new account</button></li>
-                            <li>
-                                @if (authService.LightWeightAccountAuthenticated)
-                                {
-                                    <button type="button" @onclick="UseExistingLightweightAccount">Comment without an account using existing pseudonym (@authService.Pseudonym)</button>
-                                }
-                                else
-                                {
-                                    <button type="button" @onclick="CreateLightWeightAccount">Comment without an account</button>
-                                }
-                            </li>
-                        </ul>
+                        <div class="comment-buttons-container">
+                            <button class="blue-button comment-button" @onclick="OpenAuthModal">Login to account or register a new account</button>
+
+                            @if (authService.LightWeightAccountAuthenticated)
+                            {
+                                <button class="blue-button comment-button" type="button" @onclick="UseExistingLightweightAccount">Comment without an account using existing pseudonym (@authService.Pseudonym)</button>
+                            }
+                            else
+                            {
+                                <button class="blue-button comment-button" type="button" @onclick="CreateLightWeightAccount">Comment without an account</button>
+                            }
+                        </div>
                     }
                     else
                     {
-                        <textarea placeholder="Write your comment here..." class="comment-text" @bind="newCommentContent"></textarea>
-                        <button @onclick="SubmitComment">Submit Comment</button>
+                        <div class="comment-input-container">
+                            <textarea placeholder="Write your comment here..." class="comment-text" @bind="newCommentContent"></textarea>
+                            <button @onclick="SubmitComment">Submit Comment</button>
+                            @if (!string.IsNullOrEmpty(commentSubmissionErrorMessage))
+                            {
+                                <p class="error-message">@commentSubmissionErrorMessage</p>
+                            }
+                        </div>
                     }
                 </div>
 
@@ -164,7 +175,8 @@
 
     private string newCommentContent = string.Empty;
 
-    private int renderCounter = 0;
+    private string? commentSubmissionErrorMessage;
+    private bool isSubmittingComment = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -188,20 +200,45 @@
 
     private async Task SubmitComment()
     {
-        if (!string.IsNullOrWhiteSpace(newCommentContent) && newCommentContent.Length > 4)
+        commentSubmissionErrorMessage = null;
+
+        if (string.IsNullOrWhiteSpace(newCommentContent) || newCommentContent.Length <= 4)
         {
-            BlogPostComment newComment = new BlogPostComment
+            commentSubmissionErrorMessage = "Comment must be at least 5 characters long.";
+            return;
+        }
+
+        isSubmittingComment = true; // Disable the submit comment button while submitting
+
+        BlogPostComment newComment = new BlogPostComment
+        {
+            BlogPostId = BlogPostId,
+            Pseudonym = authService.Pseudonym,
+            Content = newCommentContent
+        };
+
+        try
+        {
+            HttpResponseMessage response = await HttpClient.PostAsJsonAsync($"{NavigationManager.BaseUri}api/blogposts/submit-comment", newComment);
+            if (response.IsSuccessStatusCode)
             {
-                Pseudonym = authService.Pseudonym,
-                Content = newCommentContent,
-                CreatedAt = DateTime.Now,
-                UpdatedAt = DateTime.Now
-            };
-
-            await HttpClient.PostAsJsonAsync($"{NavigationManager.BaseUri}api/blogposts/{BlogPostId}/comments", newComment);
-
-            // Clear the form
-            newCommentContent = string.Empty;
+                // Clear the form
+                newCommentContent = string.Empty;
+            }
+            else
+            {
+                // Extract error message from response
+                string jsonError = await response.Content.ReadAsStringAsync();
+                commentSubmissionErrorMessage = ExtractErrorMessage(jsonError);
+            }
+        }
+        catch (Exception ex)
+        {
+            commentSubmissionErrorMessage = $"An unexpected error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isSubmittingComment = false; // Re-enable the submit comment button
         }
     }
 
@@ -228,6 +265,19 @@
     private void OnModalStateChanged(bool show)
     {
         ShowAuthModal = show;
+    }
+
+    private string ExtractErrorMessage(string jsonError)
+    {
+        // Simple extraction assuming the JSON format is {"error": "Message here"}
+        int startIndex = jsonError.IndexOf(":\"") + 2;
+        int endIndex = jsonError.LastIndexOf("\"");
+
+        if (startIndex > 1 && endIndex > startIndex)
+        {
+            return jsonError[startIndex..endIndex];
+        }
+        return "An unknown error occurred.";
     }
 
 

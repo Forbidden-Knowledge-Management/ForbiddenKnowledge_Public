@@ -15,7 +15,6 @@ namespace ForbiddenKnowledge.Data.DbModels
         [ForeignKey("BlogPost")]
         [Column("blog_post_id")]
         public int BlogPostId { get; set; }
-        public BlogPost BlogPost { get; set; } = null!;
 
         [Required]
         [ForeignKey("User")]

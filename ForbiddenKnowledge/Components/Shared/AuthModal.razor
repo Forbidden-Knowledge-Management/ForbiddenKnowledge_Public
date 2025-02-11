@@ -11,44 +11,77 @@
 
         @if (IsLoginMode)
         {
-            <EditForm Model="@LoginModel" OnValidSubmit="SubmitLogin">
-                <DataAnnotationsValidator />
-                <ValidationSummary />
+            <p>
+                If you already have an account on Forbidden Knowledge, please enter your Pseudonym and Password below to login.
+                If you do not have an account and would like to make one, please click the "Switch to Register" button.
+            </p>
 
-                <label>Pseudonym:</label>
-                <InputText id="Pseudonym" @bind-Value="LoginModel.Pseudonym" />
+            <EditForm class="form" Model="@LoginModel" OnValidSubmit="SubmitLogin">
+                <DataAnnotationsValidator />
+                @* <ValidationSummary /> *@
+
+                <div class="form-item">
+                    <label class="label">Pseudonym:</label>
+                    <InputText class="form-input" id="Pseudonym" @bind-Value="LoginModel.Pseudonym" />
+                </div>
                 <ValidationMessage For="@(() => LoginModel.Pseudonym)" />
 
-                <label>Password:</label>
-                <InputText id="Password" @bind-Value="LoginModel.Password" InputType="password" />
+                <div class="form-item">
+                    <label class="label">Password:</label>
+                    <PasswordInput Value="@LoginModel.Password" ValueChanged="@((val) => LoginModel.Password = val)" />
+                </div>
                 <ValidationMessage For="@(() => LoginModel.Password)" />
 
-                <button type="submit">Login</button>
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-danger">@errorMessage</div>
+                }
+                <button class="blue-button register-login-switch-button" type="submit">Login</button>
             </EditForm>
         }
         else
         {
-            <EditForm Model="@RegisterModel" OnValidSubmit="SubmitRegistration">
+            <p>
+                This is for registering a new account.
+                If you already have a Forbidden Knowledge account, please click the "Switch to Login" button to login.
+            </p>
+
+            <p>
+                We highly reccomend using a dedicated password manager such as <a href="https://www.keepersecurity.com" target="_blank">Keeper</a> or <a href="https://1password.com" target="_blank">1Password</a> to generate secure passwords and manage various accounts.
+            </p>
+
+            <EditForm class="form" Model="@RegisterModel" OnValidSubmit="SubmitRegistration">
                 <DataAnnotationsValidator />
-                <ValidationSummary />
+                @* <ValidationSummary /> *@
 
-                <label>Email:</label>
-                <InputText id="Email" @bind-Value="RegisterModel.Email" />
-                <ValidationMessage For="@(() => RegisterModel.Email)" />
-
-                <label>Password:</label>
-                <InputText id="Password" @bind-Value="RegisterModel.Password" InputType="password" />
-                <ValidationMessage For="@(() => RegisterModel.Password)" />
-
-                <label>Pseudonym:</label>
-                <InputText id="Pseudonym" @bind-Value="RegisterModel.Pseudonym" />
+                <div class="form-item">
+                    <label class="label">Pseudonym:</label>
+                    <InputText class="form-input" id="Pseudonym" @bind-Value="RegisterModel.Pseudonym" />
+                </div>
                 <ValidationMessage For="@(() => RegisterModel.Pseudonym)" />
 
-                <button type="submit">Register</button>
+                <div class="form-item">
+                    <label class="label">Email:</label>
+                    <InputText class="form-input" id="Email" @bind-Value="RegisterModel.Email" />
+                </div>
+                <ValidationMessage For="@(() => RegisterModel.Email)" />
+
+                <div class="form-item">
+                    <label class="label">Password:</label>
+                    <PasswordInput Value="@RegisterModel.Password" ValueChanged="@((val) => RegisterModel.Password = val)" />
+                </div>
+                <ValidationMessage For="@(() => RegisterModel.Password)" />
+
+                <button class="blue-button register-login-switch-button" type="submit">Register</button>
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-danger">@errorMessage</div>
+                }
             </EditForm>
         }
 
-        <button @onclick="ToggleMode">@((IsLoginMode ? "Switch to Register" : "Switch to Login"))</button>
+        <button class="blue-button register-login-switch-button" @onclick="ToggleMode">@((IsLoginMode ? "Switch to Register" : "Switch to Login"))</button>
     </div>
 </div>
 
@@ -65,32 +98,67 @@
     private LoginModel LoginModel = new();
     private RegisterModel RegisterModel = new();
 
+    private string passwordType = "password";
+    private string EyeIconClass => passwordType == "password" ? "fa fa-eye" : "fa fa-eye-slash";
+
+    public string errorMessage { get; set; }
 
     private async Task SubmitLogin()
     {
-        await authService.LoginFullAccountAsync(LoginModel);
+        var(succeeded, error) = await authService.LoginFullAccountAsync(LoginModel);
         if (authService.FullAccountAuthenticated == true)
         {
-            // Notify parent about successful login
+            // Notify parent to close popup
             await ShowModalChanged.InvokeAsync(false);
+
+            //clear input fields
+            LoginModel = new LoginModel();
         }
         else
         {
-            // Handle login failure
+            errorMessage = error;
         }
     }
 
     private async Task SubmitRegistration()
     {
-        HttpResponseMessage response = await HttpClient.PostAsJsonAsync($"{NavigationManager.BaseUri}api/users/register", RegisterModel);
-        if (response.IsSuccessStatusCode)
+        try
         {
-            // Notify parent about successful login
-            await ShowModalChanged.InvokeAsync(false);
+            HttpResponseMessage response = await HttpClient.PostAsJsonAsync($"{NavigationManager.BaseUri}api/users/register", RegisterModel);
+            if (response.IsSuccessStatusCode)
+            {
+                //so the new user is now registered, but we now need to log them in
+                var loginModel = new LoginModel
+                {
+                    Pseudonym = RegisterModel.Pseudonym,
+                    Password = RegisterModel.Password
+                };
+
+                //Attempt automatic login after registration
+                var(succeeded, error) = await authService.LoginFullAccountAsync(loginModel);
+                if (authService.FullAccountAuthenticated == true)
+                {
+                    // Notify parent about successful login, close popup
+                    await ShowModalChanged.InvokeAsync(false);
+                }
+                else
+                {
+                    errorMessage = $"Registration successful, but login failed due to {error}. Please attempt to log in manually.";
+                }
+
+                //Clear input fields
+                RegisterModel = new RegisterModel();               
+            }
+            else
+            {
+                string errorDetails = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Registration failed: {errorDetails}";
+            }
         }
-        else
+        catch (Exception ex)
         {
-            // Handle registration failure
+            errorMessage = "An unexpected error occurred during registration. Please try again later.";
+            //_logger.LogError(ex, "Registration failed for user {Email}", RegisterModel.Email);
         }
     }
 

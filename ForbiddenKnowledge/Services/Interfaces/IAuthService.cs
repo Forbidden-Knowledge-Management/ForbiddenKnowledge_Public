@@ -8,7 +8,7 @@ namespace ForbiddenKnowledge.Services
         bool LightWeightAccountAuthenticated { get;}
         string? Pseudonym { get;}
 
-        Task LoginFullAccountAsync(LoginModel loginModel);
+        Task<(bool Succeeded, string? Error)> LoginFullAccountAsync(LoginModel loginModel);
 
         Task LogoutFullAccountAsync();
 

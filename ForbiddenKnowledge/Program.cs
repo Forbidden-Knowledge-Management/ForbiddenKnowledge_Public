@@ -103,7 +103,6 @@ try
     app.UseMiddleware<ForbiddenKnowledge.Middleware.ErrorLogger>();
 
     // Configure Audit.NET to use our custom data provider
-    //Audit.Core.Configuration.DataProvider = new GenericAuditDataProvider(app.Services.CreateScope().ServiceProvider.GetService<AuditDbContext>());
     Audit.Core.Configuration.DataProvider = builder.Services.BuildServiceProvider().GetRequiredService<AuditDataProvider>();
 
     // Configure the HTTP request pipeline.

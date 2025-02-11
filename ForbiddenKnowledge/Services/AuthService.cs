@@ -1,4 +1,5 @@
 ﻿using ForbiddenKnowledge.Data;
+using Microsoft.AspNetCore.Components;
 
 namespace ForbiddenKnowledge.Services
 {
@@ -16,34 +17,36 @@ namespace ForbiddenKnowledge.Services
 
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly HttpClient _httpClient;
-        private readonly IUserService _userService;
         private readonly ForbiddenKnowledgeContext _forbiddenKnowledgeContext;
+        private readonly NavigationManager _navigationManager;
 
-        public AuthService(IHttpContextAccessor httpContextAccessor, HttpClient httpClient, IUserService userService, ForbiddenKnowledgeContext forbiddenKnowledgeContext)
+        public AuthService(IHttpContextAccessor httpContextAccessor, HttpClient httpClient, ForbiddenKnowledgeContext forbiddenKnowledgeContext, NavigationManager navigationManager)
         {
             _httpContextAccessor = httpContextAccessor;
             _httpClient = httpClient;
-            _userService = userService;
             _forbiddenKnowledgeContext = forbiddenKnowledgeContext;
+            _navigationManager = navigationManager;
         }
 
-        public async Task LoginFullAccountAsync(LoginModel loginModel)
+        public async Task<(bool Succeeded, string? Error)> LoginFullAccountAsync(LoginModel loginModel)
         {
-            HttpResponseMessage response = await _httpClient.PostAsJsonAsync("api/users/login", loginModel);
+            HttpResponseMessage response = await _httpClient.PostAsJsonAsync($"{_navigationManager.BaseUri}api/users/login", loginModel);
             if (response.IsSuccessStatusCode)
             {
                 FullAccountAuthenticated = true;
                 Pseudonym = loginModel.Pseudonym;
+                return (true, null);
             }
             else
             {
-                throw new Exception("Login failed. Check your pseudonym and password.");
+                string errorDetails = await response.Content.ReadAsStringAsync();
+                return (false, errorDetails);
             }
         }
 
         public async Task LogoutFullAccountAsync()
         {
-            await _httpClient.PostAsync("api/users/logout", null);
+            await _httpClient.PostAsync($"{_navigationManager.BaseUri}api/users/logout", null);
             FullAccountAuthenticated = false;
             Pseudonym = null;
         }
@@ -51,20 +54,19 @@ namespace ForbiddenKnowledge.Services
 
         public async Task CreateLightweightAccountIdentityAsync()
         {
-            Pseudonym = $"AnonymousUser{Guid.NewGuid().ToString("N").Substring(0, 8)}";
-            var (succeeded, errors) = await _userService.RegisterUserAsync(Pseudonym, null, null);
-            if (succeeded)
+            HttpResponseMessage lighweightAccountCreationResponse = await _httpClient.PostAsync($"{_navigationManager.BaseUri}api/users/lightweight-account", null);
+            if (lighweightAccountCreationResponse.IsSuccessStatusCode)
             {
-                HttpResponse? response = _httpContextAccessor.HttpContext?.Response;
-                response?.Cookies.Append(LightweightAccountCookieName, Pseudonym!, new CookieOptions
-                {
-                    Expires = DateTimeOffset.UtcNow.AddYears(1),
-                    HttpOnly = true,
-                    IsEssential = true
-                });
+                var result = await lighweightAccountCreationResponse.Content.ReadFromJsonAsync<LightweightAccountResponse>();
+                Pseudonym = result.Pseudonym;
                 LightWeightAccountAuthenticated = true;
             }
+            else
+            {
+                throw new Exception("Lightweight account creation failed due to rate-limiting or another error.");
+            }
         }
+
 
         public async Task TryRetrieveLightweightAccountAsync()
         {
@@ -88,6 +90,11 @@ namespace ForbiddenKnowledge.Services
             }
         }
 
+
+        private class LightweightAccountResponse
+        {
+            public string Pseudonym { get; set; }
+        }
 
     }
 }
