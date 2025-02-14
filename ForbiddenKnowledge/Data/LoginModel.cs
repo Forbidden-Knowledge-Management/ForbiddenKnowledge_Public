@@ -11,5 +11,7 @@ namespace ForbiddenKnowledge.Data
         [Required]
         public string Password { get; set; } = string.Empty;
 
+        public string UppercasedPseudonym => Pseudonym.ToUpperInvariant();
+
     }
 }

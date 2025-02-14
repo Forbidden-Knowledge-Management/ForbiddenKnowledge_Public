@@ -1,10 +1,9 @@
-﻿using ForbiddenKnowledge.Data.DbModels;
-using ForbiddenKnowledge.Services;
-using ForbiddenKnowledge.Data;
-
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 
+using ForbiddenKnowledge.Data.DbModels;
+using ForbiddenKnowledge.Services;
+using ForbiddenKnowledge.Data;
 
 
 namespace ForbiddenKnowledge.Controllers
@@ -14,8 +13,6 @@ namespace ForbiddenKnowledge.Controllers
     public class UserController : Controller
     {
         private readonly IUserService _userService;
-
-        private const string LightweightAccountCookieName = "fk_lightweight_user";
 
         public UserController(IUserService userService)
         {
@@ -31,11 +28,11 @@ namespace ForbiddenKnowledge.Controllers
                 return BadRequest(ModelState);
             }
 
-            var (succeeded, errors) = await _userService.RegisterUserAsync(registerModel.Pseudonym, registerModel.Email, registerModel.Password);
+            var (succeeded, errors) = await _userService.RegisterUserAsync(registerModel.Pseudonym, registerModel.UppercasedPseudonym, registerModel.Email, registerModel.Password);
 
             if (succeeded)
             {
-                return Ok(new { Message = "Registration successful." });
+                return Ok(new { message = "Registration successful." });
             }
 
             return BadRequest(errors);
@@ -49,21 +46,21 @@ namespace ForbiddenKnowledge.Controllers
                 return BadRequest(ModelState);
             }
 
-            var (succeeded, error) = await _userService.LoginUserAsync(loginModel.Pseudonym, loginModel.Password);
+            var (succeeded, error) = await _userService.LoginUserAsync(loginModel.UppercasedPseudonym, loginModel.Password);
 
             if (succeeded)
             {
-                return Ok(new {Message = "Login successful"});
+                return Ok(new { message = "Login successful"});
             }
 
-            return Unauthorized(new { Message = $"Invalid login attempt: {error}" });
+            return Unauthorized(new { message = $"Invalid login attempt: {error}" });
         }
 
         [HttpPost("logout")]
         public async Task<IActionResult> Logout()
         {
             await _userService.LogoutUserAsync();
-            return Ok(new { Message = "Logout successful"});
+            return Ok(new { message = "Logout successful"});
         }
 
 
@@ -79,23 +76,15 @@ namespace ForbiddenKnowledge.Controllers
                 return BadRequest("Too many lightweight accounts created from this IP. Try again later.");
             }
 
-            string pseudonym = $"ANONYMOUSUSER{Guid.NewGuid().ToString("N").Substring(0, 8)}".ToUpperInvariant();
-            var (succeeded, errors) = await _userService.RegisterUserAsync(pseudonym, null, null);
+            string pseudonym = $"Anonymoususer{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+            var (succeeded, errors) = await _userService.RegisterUserAsync(pseudonym, pseudonym.ToUpperInvariant(), null, null);
 
             if (!succeeded)
             {
                 return BadRequest(errors);
             }
 
-            Response?.Cookies.Append(LightweightAccountCookieName, pseudonym!, new CookieOptions
-            {
-                Expires = DateTimeOffset.UtcNow.AddYears(1),
-                HttpOnly = true,
-                IsEssential = true
-            });
-
-            return Ok(new { Pseudonym = pseudonym });
+            return Ok(new { message = "Registration successful." });
         }
-
     }
 }

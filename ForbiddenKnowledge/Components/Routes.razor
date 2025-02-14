@@ -1,14 +1,17 @@
-﻿<Router AppAssembly="typeof(Program).Assembly">
-    <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
-        <FocusOnNavigate RouteData="routeData" Selector="h1" />
-    </Found>
-    <NotFound>
-        <LayoutView Layout="typeof(Layout.MainLayout)">
-            <p class="main">Sorry, there's nothing at this URL. Please go back to the Forbidden Knowledge homepage.</p>
-        </LayoutView>
-    </NotFound>
-</Router>
+﻿
+
+    <Router AppAssembly="typeof(Program).Assembly">
+        <Found Context="routeData">
+            <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+            <FocusOnNavigate RouteData="routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <LayoutView Layout="typeof(Layout.MainLayout)">
+                <p class="main">Sorry, there's nothing at this URL. Please go back to the Forbidden Knowledge homepage.</p>
+            </LayoutView>
+        </NotFound>
+    </Router>
+
 
 
 <!-- 

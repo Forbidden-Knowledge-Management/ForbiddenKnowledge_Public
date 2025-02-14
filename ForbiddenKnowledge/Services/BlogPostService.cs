@@ -96,7 +96,7 @@ namespace ForbiddenKnowledge.Services
                 return (false, "The blog post you are commenting on does not exist.");
             }
 
-            User user = await _forbiddenKnowledgeContext.Users.FirstOrDefaultAsync(u => u.Pseudonym == blogPostComment.Pseudonym);
+            User user = await _forbiddenKnowledgeContext.Users.FirstOrDefaultAsync(u => u.OriginalPseudonym == blogPostComment.Pseudonym);
             if (user == null)
             {
                 return (false, "Invalid Pseudonym. User does not exist.");

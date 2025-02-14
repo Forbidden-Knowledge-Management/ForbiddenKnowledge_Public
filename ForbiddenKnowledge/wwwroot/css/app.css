@@ -219,8 +219,13 @@ blockquote p {
     justify-content: start;
 }
 
-.error-message{
+.submit-comment-button {
+    width: 180px;
+    align-self: flex-end;
 
+}
+
+.error-message {
     color: red;
 }
 

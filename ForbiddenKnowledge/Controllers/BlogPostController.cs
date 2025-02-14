@@ -1,8 +1,10 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 using ForbiddenKnowledge.Data.DbModels;
 using ForbiddenKnowledge.Services;
 using ForbiddenKnowledge.Data.DTOs;
+
 
 
 namespace ForbiddenKnowledge.Controllers
@@ -38,13 +40,14 @@ namespace ForbiddenKnowledge.Controllers
             return post;
         }
 
+        [Authorize]
         [HttpPost("submit-comment")]
         public async Task<IActionResult> SubmitNewComment([FromBody] SubmitCommentDto newCommentDto)
         {
             BlogPostComment newComment = new BlogPostComment
             {
                 BlogPostId  = newCommentDto.BlogPostId,
-                Pseudonym   = newCommentDto.Pseudonym.ToUpperInvariant(),
+                Pseudonym   = newCommentDto.Pseudonym,
                 Content     = newCommentDto.Content,
                 CreatedAt   = DateTime.UtcNow,
                 UpdatedAt   = DateTime.UtcNow

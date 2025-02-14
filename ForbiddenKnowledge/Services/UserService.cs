@@ -17,25 +17,27 @@ namespace ForbiddenKnowledge.Services
         private readonly SignInManager<User> _signInManager;
         private readonly ForbiddenKnowledgeContext _forbiddenKnowledgeContext;
         private readonly AuditDbContext _auditDbContext;
+        private readonly ILogger _logger;
 
-        public UserService(UserManager<User> userManager, SignInManager<User> signInManager, ForbiddenKnowledgeContext forbiddenKnowledgeContext, AuditDbContext auditDbContext)
+        public UserService(UserManager<User> userManager, SignInManager<User> signInManager, ForbiddenKnowledgeContext forbiddenKnowledgeContext, AuditDbContext auditDbContext, ILogger<UserService> logger)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _forbiddenKnowledgeContext = forbiddenKnowledgeContext;
             _auditDbContext = auditDbContext;
+            _logger = logger;
         }
 
         /// <summary>
         /// This handles creating new Full user accounts and new Lightweight user accounts. Both are stored in the same "external_user" DB table.
         /// </summary>
-        /// <param name="pseudonym"></param>
+        /// <param name="originalPseudonym"></param>
         /// <param name="email"></param>
         /// <param name="password"></param>
         /// <returns></returns>
-        public async Task<(bool Succeeded, IEnumerable<IdentityError> Errors)> RegisterUserAsync(string pseudonym, string? email = null, string? password = null)
+        public async Task<(bool Succeeded, IEnumerable<IdentityError> Errors)> RegisterUserAsync(string originalPseudonym, string uppercasedPseudonym, string? email = null, string? password = null)
         {
-            var pseudonymUniquenessCheckResult = CheckPseudonymUniqueness(pseudonym);
+            var pseudonymUniquenessCheckResult = CheckPseudonymUniqueness(uppercasedPseudonym);
             if (pseudonymUniquenessCheckResult.Result.Succeeded == false)
             {
                 return (false, pseudonymUniquenessCheckResult.Result.Errors);
@@ -44,7 +46,8 @@ namespace ForbiddenKnowledge.Services
             {
                 User user = new User
                 {
-                    Pseudonym = pseudonym,
+                    OriginalPseudonym = originalPseudonym,
+                    UppercasedPseudonym = uppercasedPseudonym,
                     Email = email,
                     CreatedAt = DateTime.UtcNow
                 };
@@ -52,11 +55,18 @@ namespace ForbiddenKnowledge.Services
                 IdentityResult result;
                 if (string.IsNullOrEmpty(password))
                 {
+                    //Lighweight account, still created and managed by .NET Identity.
                     result = await _userManager.CreateAsync(user);
+
+                    //for lightweight accounts, it is very important that we also sign the user in.
+                    //When the user is signed in using the .NET Identity method below, it will automatically create a cookie so that the lighweight user can be authenticated.
+                    //because the cookie is all they have, no password or email.
+                    await _signInManager.SignInAsync(user, isPersistent: true);
                 }
                 else
                 {
                     //For Full accounts, we need to validate the email address.
+                    //.NET Identity will automatically validate the password based on rules configured in Program.cs.
                     var emailValidationResult = ValidateEmail(email);
                     if (emailValidationResult.Result.Succeeded == false)
                     {
@@ -69,16 +79,28 @@ namespace ForbiddenKnowledge.Services
             }
         }
 
-        public async Task<(bool Succeeded, string? Error)> LoginUserAsync(string pseudonym, string password)
+        public async Task<(bool Succeeded, string? Error)> LoginUserAsync(string uppercasedPseudonym, string password)
         {
-            var user = await _userManager.FindByNameAsync(pseudonym);
+            User user = await _userManager.FindByNameAsync(uppercasedPseudonym);
             if (user == null)
             {
                 return (false, "Pseudonym not found");
             }
 
-            SignInResult result = await _signInManager.PasswordSignInAsync(user, password, isPersistent: true, lockoutOnFailure: false);
-            return (result.Succeeded, "Login error");
+            SignInResult signInResult = await _signInManager.PasswordSignInAsync(user, password, isPersistent: true, lockoutOnFailure: false);
+            _logger.LogInformation("SignInResult: {Result}", signInResult.Succeeded);
+            if (signInResult.Succeeded)
+            {
+                await _signInManager.SignInAsync(user, isPersistent: true);
+                return (true, null);
+            }
+
+            string errorMessage = signInResult.IsLockedOut ? "Account is locked."
+                  : signInResult.IsNotAllowed ? "Login not allowed."
+                  : signInResult.RequiresTwoFactor ? "Two-factor authentication required."
+                  : "Invalid password.";
+
+            return (signInResult.Succeeded, errorMessage);
         }
 
         public async Task LogoutUserAsync()
@@ -91,25 +113,26 @@ namespace ForbiddenKnowledge.Services
             DateTime oneHourAgo = DateTime.UtcNow.AddHours(-1);
 
             var recentAttempts = await _auditDbContext.AuditTrails
-                                       .CountAsync(a => a.RequestUrl.Contains("/create-lightweight-account") &&
+                                       .CountAsync(a => a.RequestUrl.Contains("/lightweight-account") &&
                                         a.Timestamp >= oneHourAgo &&
                                         a.IpAddress == ipAddress);
 
             return recentAttempts >= 3; // Limit to 3 per hour
         }
 
+        //Pseudonyms are case-insensitive. That is maintained elsewhere. This is for more specific, custom stuff.
         //ZM to-do: this is just an early attempt. Should try to improve this.
-        private async Task<(bool Succeeded, IEnumerable<IdentityError> Errors)> CheckPseudonymUniqueness(string pseudonym)
+        private async Task<(bool Succeeded, IEnumerable<IdentityError> Errors)> CheckPseudonymUniqueness(string uppercasedPseudonym)
         {
             List<IdentityError> Errors = new List<IdentityError>();
 
-            if (pseudonym.StartsWith("AnonymousUser"))
+            if (uppercasedPseudonym.StartsWith("ANONYMOUSUSER"))
             {
                 //lighweight account pseudonyms are always unique because they are appended with a GUID
                 return (true, Errors);
             }
 
-            if (_forbiddenKnowledgeContext.Users.Any(u => u.Pseudonym == pseudonym) == true)
+            if (_forbiddenKnowledgeContext.Users.Any(u => u.UppercasedPseudonym == uppercasedPseudonym) == true)
             {
                 Errors.Add(new IdentityError() { Code = "Literal Pseudonym Match", Description = "A user with this exact pseudonym already exists" });
                 return (false, Errors);

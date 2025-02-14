@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.Server;
 
 using NLog.Web;
 using NLog;
@@ -13,6 +15,7 @@ using ForbiddenKnowledge.Hubs;
 using ForbiddenKnowledge.Services;
 using ForbiddenKnowledge.Data.DbModels;
 using Audit.Core;
+
 
 var logger = NLog.LogManager.Setup().LoadConfigurationFromAppSettings().GetCurrentClassLogger();
 logger.Debug("init main");
@@ -48,37 +51,75 @@ try
     // services needed by the blazor web stack
     // The antiforgery service is not needed for Blazor. SignalR connections are not vulnerable to CSRF attacks like tradtional HTTP requests.
 
+    var handler = new HttpClientHandler { UseCookies = true };  // Enable cookies for HttpClient
+    var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://localhost:7085") };
+
     builder.Services.AddRazorComponents().AddInteractiveServerComponents();      // Needed for Blazor components
     builder.Services.AddControllers();          // Enables API controllers
-    builder.Services.AddHttpClient();           // For making HTTP requests to the API controller backend 
+    builder.Services.AddSingleton(httpClient);  // Register the custom HttpClient as a singleton (ensures cookies persist)
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddSignalR();              // Add SignalR services. needed for SignalR logging.
+    builder.Services.AddSingleton(TimeProvider.System);
+
+    builder.Services.AddCascadingAuthenticationState();
+    builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
+
+    builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultScheme = IdentityConstants.ApplicationScheme;
+        options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
+    })
+    .AddIdentityCookies();
 
     //.NET Identity Core Auth
     builder.Services.AddIdentityCore<User>(options =>
     {
+        options.SignIn.RequireConfirmedEmail = false;
+
         options.Password.RequiredLength = 12;
         options.Password.RequireNonAlphanumeric = true;
         options.Password.RequireUppercase = true;
+        options.Password.RequireLowercase = true;
         options.Password.RequireDigit = true;
+
+        //options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(10);
+        //options.Lockout.MaxFailedAccessAttempts = 5;
+        //options.Lockout.AllowedForNewUsers = true;
+
+        //options.User.AllowedUserNameCharacters =
+        //"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+";
     })
     .AddSignInManager()
     .AddDefaultTokenProviders()
     .AddUserStore<CustomUserStore>();
 
-    //ZM to-do: review these settings
+    builder.Services.AddScoped<IUserClaimsPrincipalFactory<User>, CustomUserClaimsPrincipalFactory>();
 
-    builder.Services.AddAuthentication(IdentityConstants.ApplicationScheme)
-    .AddCookie(IdentityConstants.ApplicationScheme, options =>
+    // Configure Cookie Authentication
+    builder.Services.ConfigureApplicationCookie(options =>
     {
-        options.LoginPath = "/Account/Login";                    // Adjust as needed
-        options.LogoutPath = "/Account/Logout";
-        options.ExpireTimeSpan = TimeSpan.FromDays(7);           // Cookie expiration
+        options.Cookie.Name = "fk_user_cookie";
+        options.ExpireTimeSpan = TimeSpan.FromDays(7);           
         options.SlidingExpiration = true;                        // Extend expiration on activity
-        options.Cookie.HttpOnly = true;                          // Secure cookie
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // Only over HTTPS
-        options.Cookie.SameSite = SameSiteMode.Lax;              // Cross-site prevention
+        options.Cookie.HttpOnly = true;                          
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always; 
+        options.Cookie.SameSite = SameSiteMode.Lax;              // Prevent CSRF
+
+        // Disable automatic redirects since FK handles login/logout via API
+        options.Events.OnRedirectToLogin = context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return Task.CompletedTask;
+        };
+
+        options.Events.OnRedirectToAccessDenied = context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return Task.CompletedTask;
+        };
     });
+
+    //builder.Services.AddAuthorizationCore();
 
     //services for the audit DB context. this ensures DB concurrency issues don't occur.
     builder.Services.AddScoped<GenericAuditDataProvider>();
@@ -93,7 +134,6 @@ try
     builder.Services.AddScoped<IUserService, UserService>();
     builder.Services.AddScoped<IAuthService, AuthService>();
     builder.Services.AddScoped<IBlogPostService, BlogPostService>();
-    //builder.Services.AddScoped<OrderState>();
 
 
     var app = builder.Build();
@@ -121,10 +161,10 @@ try
     //The order below is correct. Https redirection, static files, and routing come first, then authentication and authorization.
     app.UseHttpsRedirection();
     app.UseStaticFiles();
-    app.UseAntiforgery();
     //app.UseRouting();
     app.UseAuthentication();
     app.UseAuthorization();
+    app.UseAntiforgery();
 
     app.UseForwardedHeaders(new ForwardedHeadersOptions
     {

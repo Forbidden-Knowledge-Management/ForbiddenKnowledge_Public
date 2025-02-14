@@ -17,5 +17,7 @@ namespace ForbiddenKnowledge.Data
         [MaxLength(100)]
         public string Pseudonym { get; set; } = string.Empty;
 
+        public string UppercasedPseudonym => Pseudonym.ToUpperInvariant();
+
     }
 }

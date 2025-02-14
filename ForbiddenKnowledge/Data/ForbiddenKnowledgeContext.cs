@@ -37,7 +37,7 @@ namespace ForbiddenKnowledge.Data
                 entity.HasOne(e => e.User)
                       .WithMany()
                       .HasForeignKey(e => e.Pseudonym)
-                      .HasPrincipalKey(u => u.Pseudonym)
+                      .HasPrincipalKey(u => u.OriginalPseudonym)
                       .OnDelete(DeleteBehavior.SetNull);
             });
 

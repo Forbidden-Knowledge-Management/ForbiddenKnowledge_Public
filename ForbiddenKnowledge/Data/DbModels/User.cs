@@ -11,10 +11,19 @@ namespace ForbiddenKnowledge.Data.DbModels
         [Column("id")]
         public int Id { get; set; }
 
+        //Pseudonym are case-insensitive, HOWEVER, we need to ensure we store the the original casing for front-end display purposes.
         [Required]
         [MaxLength(100)]
-        [Column("pseudonym")]
-        public required string Pseudonym { get; set; }
+        [Column("original_pseudonym")]
+        public required string OriginalPseudonym { get; set; }
+
+        //Pseudonym (UserNames) are case-insensitive.
+        //I am not a fan of this personally, but this is needed for security and practicality reasons.
+        //it makes it easier for users to login, and prevents malicious users from creating accounts with the same name but different casing (so called "username squatting")
+        [Required]
+        [MaxLength(100)]
+        [Column("uppercased_pseudonym")]
+        public required string UppercasedPseudonym { get; set; }
 
         [MaxLength(256)]
         [Column("email")]

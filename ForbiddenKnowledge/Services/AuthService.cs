@@ -1,5 +1,9 @@
 ﻿using ForbiddenKnowledge.Data;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Authorization;
+using Newtonsoft.Json;
+using System.Security.Claims;
+using System.Text.Json;
 
 namespace ForbiddenKnowledge.Services
 {
@@ -9,23 +13,41 @@ namespace ForbiddenKnowledge.Services
 
     public class AuthService : IAuthService
     {
-        private const string LightweightAccountCookieName = "fk_lightweight_user";
-
-        public bool FullAccountAuthenticated { get; private set; } = false;
-        public bool LightWeightAccountAuthenticated { get; private set; } = false;
         public string? Pseudonym { get; private set; }
+        public bool IsLightweightUser { get; private set; }
 
-        private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly HttpClient _httpClient;
-        private readonly ForbiddenKnowledgeContext _forbiddenKnowledgeContext;
         private readonly NavigationManager _navigationManager;
+        private readonly AuthenticationStateProvider _authStateProvider;
 
-        public AuthService(IHttpContextAccessor httpContextAccessor, HttpClient httpClient, ForbiddenKnowledgeContext forbiddenKnowledgeContext, NavigationManager navigationManager)
+        public AuthService(HttpClient httpClient, NavigationManager navigationManager, AuthenticationStateProvider authStateProvider)
         {
-            _httpContextAccessor = httpContextAccessor;
             _httpClient = httpClient;
-            _forbiddenKnowledgeContext = forbiddenKnowledgeContext;
             _navigationManager = navigationManager;
+            _authStateProvider = authStateProvider;
+        }
+
+
+        //ZM to-do
+        //currently not authenticating
+        //need to finds out why and refactor this method to return feedback
+        public async Task<bool> CheckAuthenticationStatusAsync()
+        {
+            AuthenticationState authState = await _authStateProvider.GetAuthenticationStateAsync();
+            ClaimsPrincipal user = authState.User;
+
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                Pseudonym = user.FindFirst(ClaimTypes.Name)?.Value ?? "Unknown";
+                IsLightweightUser = user.HasClaim(c => c.Type == "AccountType" && c.Value == "Lightweight");
+                return (true);
+            }
+            else
+            {
+                Pseudonym = null;
+                IsLightweightUser = false;
+                return (false);
+            }
         }
 
         public async Task<(bool Succeeded, string? Error)> LoginFullAccountAsync(LoginModel loginModel)
@@ -33,67 +55,82 @@ namespace ForbiddenKnowledge.Services
             HttpResponseMessage response = await _httpClient.PostAsJsonAsync($"{_navigationManager.BaseUri}api/users/login", loginModel);
             if (response.IsSuccessStatusCode)
             {
-                FullAccountAuthenticated = true;
-                Pseudonym = loginModel.Pseudonym;
-                return (true, null);
-            }
-            else
-            {
-                string errorDetails = await response.Content.ReadAsStringAsync();
-                return (false, errorDetails);
-            }
-        }
-
-        public async Task LogoutFullAccountAsync()
-        {
-            await _httpClient.PostAsync($"{_navigationManager.BaseUri}api/users/logout", null);
-            FullAccountAuthenticated = false;
-            Pseudonym = null;
-        }
-
-
-        public async Task CreateLightweightAccountIdentityAsync()
-        {
-            HttpResponseMessage lighweightAccountCreationResponse = await _httpClient.PostAsync($"{_navigationManager.BaseUri}api/users/lightweight-account", null);
-            if (lighweightAccountCreationResponse.IsSuccessStatusCode)
-            {
-                var result = await lighweightAccountCreationResponse.Content.ReadFromJsonAsync<LightweightAccountResponse>();
-                Pseudonym = result.Pseudonym;
-                LightWeightAccountAuthenticated = true;
-            }
-            else
-            {
-                throw new Exception("Lightweight account creation failed due to rate-limiting or another error.");
-            }
-        }
-
-
-        public async Task TryRetrieveLightweightAccountAsync()
-        {
-            var request = _httpContextAccessor.HttpContext?.Request;
-            if (request?.Cookies.TryGetValue(LightweightAccountCookieName, out var pseudonym) == true)
-            {
-                if (_forbiddenKnowledgeContext.Users.Any(u => u.Pseudonym == pseudonym) == true)
+                bool authenticated = await CheckAuthenticationStatusAsync();
+                if (authenticated)
                 {
-                    Pseudonym = pseudonym;
-                    LightWeightAccountAuthenticated = true;
-
+                    return (true, null);
                 }
                 else
                 {
-                    LightWeightAccountAuthenticated = false;
+                    return (false, "Authentication failed");
                 }
             }
             else
             {
-                LightWeightAccountAuthenticated = false;
+                string errorDetails;
+                string responseContent = await response.Content.ReadAsStringAsync();
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    var result = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseContent);
+                    errorDetails = result["message"];
+                    return (false, errorDetails);
+                }
+                else
+                {
+                    //handle BadRequest
+                    if (!string.IsNullOrWhiteSpace(responseContent))
+                    {
+                        errorDetails = responseContent;
+                    }
+                    else
+                    {
+                        errorDetails = "Invalid request. Please check your input and try again.";
+                    }
+                    return (false, errorDetails);
+                }
             }
         }
 
-
-        private class LightweightAccountResponse
+        //ZM to-do
+        public async Task LogoutFullAccountAsync()
         {
-            public string Pseudonym { get; set; }
+            await _httpClient.PostAsync($"{_navigationManager.BaseUri}api/users/logout", null);
+            await CheckAuthenticationStatusAsync();
+        }
+
+
+        public async Task<(bool Succeeded, string? Error)> CreateLightweightAccountIdentityAsync()
+        {
+            HttpResponseMessage response = await _httpClient.PostAsync($"{_navigationManager.BaseUri}api/users/lightweight-account", null);
+            if (response.IsSuccessStatusCode)
+            {
+                //Note that lighweight accounts are automatically logged-in after creation.
+                bool authenticated = await CheckAuthenticationStatusAsync();
+                if (authenticated)
+                {
+                    return (true, null);
+                }
+                else
+                {
+                    return (false, "Lighweight account created, but subsequent authentication failed");
+                }
+            }
+            else
+            {
+                string errorDetails;
+                string responseContent = await response.Content.ReadAsStringAsync();
+
+                //handle BadRequest
+                if (!string.IsNullOrWhiteSpace(responseContent))
+                {
+                    errorDetails = responseContent;
+                }
+                else
+                {
+                    errorDetails = "Invalid request. Lightweight account not created. Please check your input and try again.";
+                }
+                return (false, errorDetails);
+            }
         }
 
     }

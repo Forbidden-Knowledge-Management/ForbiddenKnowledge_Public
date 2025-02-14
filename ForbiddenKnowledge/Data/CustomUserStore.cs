@@ -30,7 +30,7 @@ namespace ForbiddenKnowledge.Data
         {
             return await _forbiddenKnowledgeContext.Users
                         .AsNoTracking()
-                        .FirstOrDefaultAsync(u => u.Pseudonym == name.ToUpper(), cancellationToken);
+                        .FirstOrDefaultAsync(u => u.UppercasedPseudonym == name.ToUpper(), cancellationToken);
         }
 
         public async Task<User?> FindByEmailAsync(string email, CancellationToken cancellationToken)
@@ -47,23 +47,23 @@ namespace ForbiddenKnowledge.Data
 
         public Task<string?> GetUserNameAsync(User user, CancellationToken cancellationToken)
         {
-            return Task.FromResult(user.Pseudonym);
+            return Task.FromResult(user.OriginalPseudonym);
         }
 
         public Task<string> GetNormalizedUserNameAsync(User user, CancellationToken cancellationToken)
         {
-            return Task.FromResult(user.Pseudonym);
+            return Task.FromResult(user.UppercasedPseudonym);
         }
 
         public Task SetUserNameAsync(User user, string userName, CancellationToken cancellationToken)
         {
-            user.Pseudonym = userName;
+            user.OriginalPseudonym = userName;
             return Task.CompletedTask;
         }
 
         public Task SetNormalizedUserNameAsync(User user, string normalizedName, CancellationToken cancellationToken)
         {
-            user.Pseudonym = normalizedName; // Don't force uppercase
+            user.UppercasedPseudonym = normalizedName;
             return Task.CompletedTask;
         }
 
@@ -81,7 +81,7 @@ namespace ForbiddenKnowledge.Data
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating user {Pseudonym}", user.Pseudonym);
+                _logger.LogError(ex, "Error creating user {Pseudonym}", user.OriginalPseudonym);
                 return IdentityResult.Failed(new IdentityError { Description = ex.Message });
             }
         }

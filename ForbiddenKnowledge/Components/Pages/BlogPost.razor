@@ -8,8 +8,8 @@
 @inject HttpClient HttpClient
 @inject IAuthService authService
 
-<div>
 
+<div>
     @if (isLoading)
     {
         <p>Loading...</p>
@@ -95,57 +95,93 @@
                 <div class="new-comment-form">
                     <h5>Add a Comment</h5>
 
-                    @if (authService.FullAccountAuthenticated == false && useLighweightAccountToComment == false)
-                    {
-                        <p>
-                            In order to encourage discussion, comments may be made anonymously without creating an account.
-                            However, due to the serious nature of the disscussions that take place on Forbidden Knowledge, all users who make comments require a unique pseudonym.
-                            There are two reasons for this. First, it makes it possible to identify comments made by the same person. Second, it prevents users from impersonating each other.
-                            We encourage users who plan on making more than one comment to first make an account.
-                            However, if you choose to make a comment without making an account, the system will generate a generic pseudonym for you and save a cookie to your device so you can be recognized in the future.
-                            If the cookie is deleted from your device, that identity will be lost, and if you make another comment the system will generate a new generic pseudonym for you.
-                        </p>
-
-                        <p>
-                            Users who intend on making multiple comments are encouraged to create an account.
-                            Creating an account allows you to select your own pseudonym and securely persist it without relying on cookies.
-                            Account creation is simple and requires only a password and an email address.
-                            The email address is strictly only used for password resets. We do not share user information with anyone.
-                            We do not record the IP addresses used with a particular account.
-                            We are not interested in knowing who users are in real life.
-                            User accounts are only in place so that comments can be identifiable.
-                        </p>
-
-                        <p>
-                            If you decide to make an account after making comments with a generic, system-provided pseudonym, your existing comments will automatically update to appear with your new pseudonym.
-                        </p>
-
-                        <span>You are not logged in. Choose one of the options below to comment:</span>
-
-                        <div class="comment-buttons-container">
-                            <button class="blue-button comment-button" @onclick="OpenAuthModal">Login to account or register a new account</button>
-
-                            @if (authService.LightWeightAccountAuthenticated)
+                    <Microsoft.AspNetCore.Components.Authorization.AuthorizeView>
+                        <Authorized>
+                            @if (context.User.HasClaim("AccountType", "Lightweight") && !useLighweightAccountToComment)
                             {
-                                <button class="blue-button comment-button" type="button" @onclick="UseExistingLightweightAccount">Comment without an account using existing pseudonym (@authService.Pseudonym)</button>
+                                <p>
+                                    In order to encourage discussion, comments may be made anonymously without creating an account.
+                                    However, due to the serious nature of the disscussions that take place on Forbidden Knowledge, all users who make comments require a unique pseudonym.
+                                    There are two reasons for this. First, it makes it possible to identify comments made by the same person. Second, it prevents users from impersonating each other.
+                                    We encourage users who plan on making more than one comment to first make an account.
+                                    However, if you choose to make a comment without making an account, the system will generate a generic pseudonym for you and save a cookie to your device so you can be recognized in the future.
+                                    If the cookie is deleted from your device, that identity will be lost, and if you make another comment the system will generate a new generic pseudonym for you.
+                                </p>
+
+                                <p>
+                                    Users who intend on making multiple comments are encouraged to create an account.
+                                    Creating an account allows you to select your own pseudonym and securely persist it without relying on cookies.
+                                    Account creation is simple and requires only a password and an email address.
+                                    The email address is strictly only used for password resets. We do not share user information with anyone.
+                                    We do not record the IP addresses used with a particular account.
+                                    We are not interested in knowing who users are in real life.
+                                    User accounts are only in place so that comments can be identifiable.
+                                </p>
+
+                                <p>
+                                    If you decide to make an account after making comments with a generic, system-provided pseudonym, your existing comments will automatically update to appear with your new pseudonym.
+                                </p>
+
+                                <span>You are not logged in. Choose one of the options below to comment:</span>
+
+                                <div class="comment-buttons-container">
+                                    <button class="blue-button comment-button" @onclick="OpenAuthModal">Login to account or register a new account</button>
+
+                                    <button class="blue-button comment-button" type="button" @onclick="UseExistingLightweightAccount">Comment without an account using existing pseudonym (@authService.Pseudonym)</button>
+                                </div>
                             }
                             else
                             {
+                                <!-- Show the comment box if a full account OR if lightweight user confirmed -->
+                                <div class="comment-input-container">
+                                    <textarea placeholder="Write your comment here..." class="comment-text" @bind="newCommentContent"></textarea>
+                                    <button class="blue-button submit-comment-button" @onclick="SubmitComment">Submit Comment</button>
+                                    @if (!string.IsNullOrEmpty(commentSubmissionErrorMessage))
+                                    {
+                                        <p class="error-message">@commentSubmissionErrorMessage</p>
+                                    }
+                                </div>
+                            }
+                        </Authorized>
+
+                        <NotAuthorized>
+                            <p>
+                                In order to encourage discussion, comments may be made anonymously without creating an account.
+                                However, due to the serious nature of the disscussions that take place on Forbidden Knowledge, all users who make comments require a unique pseudonym.
+                                There are two reasons for this. First, it makes it possible to identify comments made by the same person. Second, it prevents users from impersonating each other.
+                                We encourage users who plan on making more than one comment to first make an account.
+                                However, if you choose to make a comment without making an account, the system will generate a generic pseudonym for you and save a cookie to your device so you can be recognized in the future.
+                                If the cookie is deleted from your device, that identity will be lost, and if you make another comment the system will generate a new generic pseudonym for you.
+                            </p>
+
+                            <p>
+                                Users who intend on making multiple comments are encouraged to create an account.
+                                Creating an account allows you to select your own pseudonym and securely persist it without relying on cookies.
+                                Account creation is simple and requires only a password and an email address.
+                                The email address is strictly only used for password resets. We do not share user information with anyone.
+                                We do not record the IP addresses used with a particular account.
+                                We are not interested in knowing who users are in real life.
+                                User accounts are only in place so that comments can be identifiable.
+                            </p>
+
+                            <p>
+                                If you decide to make an account after making comments with a generic, system-provided pseudonym, your existing comments will automatically update to appear with your new pseudonym.
+                            </p>
+
+                            <span>You are not logged in. Choose one of the options below to comment:</span>
+
+                            <div class="comment-buttons-container">
+                                <button class="blue-button comment-button" @onclick="OpenAuthModal">Login to account or register a new account</button>
+
                                 <button class="blue-button comment-button" type="button" @onclick="CreateLightWeightAccount">Comment without an account</button>
-                            }
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="comment-input-container">
-                            <textarea placeholder="Write your comment here..." class="comment-text" @bind="newCommentContent"></textarea>
-                            <button @onclick="SubmitComment">Submit Comment</button>
-                            @if (!string.IsNullOrEmpty(commentSubmissionErrorMessage))
-                            {
-                                <p class="error-message">@commentSubmissionErrorMessage</p>
-                            }
-                        </div>
-                    }
+                                @if (!string.IsNullOrEmpty(createLightWeightAccountErrorMessage))
+                                {
+                                    <p class="error-message">@createLightWeightAccountErrorMessage</p>
+                                }
+
+                            </div>
+                        </NotAuthorized>
+                    </Microsoft.AspNetCore.Components.Authorization.AuthorizeView>
                 </div>
 
             </div>
@@ -178,19 +214,19 @@
     private string? commentSubmissionErrorMessage;
     private bool isSubmittingComment = false;
 
+    private string? createLightWeightAccountErrorMessage = null;
+
     protected override async Task OnInitializedAsync()
     {
         try
         {
             blogPost = await HttpClient.GetFromJsonAsync<Data.DbModels.BlogPost>($"{NavigationManager.BaseUri}api/blogposts/{BlogPostId}");
-
             if (blogPost != null && blogPost != default)
             {
                 isLoading = false;
             }
 
-            // Check if the user has a lightweight account (cookie present)
-            await authService.TryRetrieveLightweightAccountAsync();
+            await authService.CheckAuthenticationStatusAsync();
         }
         catch (Exception ex)
         {
@@ -224,6 +260,10 @@
             {
                 // Clear the form
                 newCommentContent = string.Empty;
+
+                //retireve the blog post again to get the updated comments
+                blogPost = await HttpClient.GetFromJsonAsync<Data.DbModels.BlogPost>($"{NavigationManager.BaseUri}api/blogposts/{BlogPostId}");
+                await InvokeAsync(StateHasChanged);
             }
             else
             {
@@ -244,9 +284,18 @@
 
     async Task CreateLightWeightAccount()
     {
-        await authService.CreateLightweightAccountIdentityAsync();
-        useLighweightAccountToComment = true;
-        StateHasChanged();
+        createLightWeightAccountErrorMessage = null;
+        var(succeeded, error) = await authService.CreateLightweightAccountIdentityAsync();
+        if(succeeded)
+        {
+            //automatically logged in with new lighweight account already
+            useLighweightAccountToComment = true;
+            StateHasChanged();
+        }
+        else
+        {
+            createLightWeightAccountErrorMessage = error;
+        }
     }
 
     private void UseExistingLightweightAccount()

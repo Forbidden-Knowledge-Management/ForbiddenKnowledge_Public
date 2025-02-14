@@ -21,14 +21,14 @@
                 @* <ValidationSummary /> *@
 
                 <div class="form-item">
-                    <label class="label">Pseudonym:</label>
+                    <label class="label" for="Pseudonym">Pseudonym:</label>
                     <InputText class="form-input" id="Pseudonym" @bind-Value="LoginModel.Pseudonym" />
                 </div>
                 <ValidationMessage For="@(() => LoginModel.Pseudonym)" />
 
                 <div class="form-item">
-                    <label class="label">Password:</label>
-                    <PasswordInput Value="@LoginModel.Password" ValueChanged="@((val) => LoginModel.Password = val)" />
+                    <label class="label" for="password">Password:</label>
+                    <PasswordInput Value="@LoginModel.Password" ValueChanged="@((value) => LoginModel.Password = value)" />
                 </div>
                 <ValidationMessage For="@(() => LoginModel.Password)" />
 
@@ -55,20 +55,20 @@
                 @* <ValidationSummary /> *@
 
                 <div class="form-item">
-                    <label class="label">Pseudonym:</label>
+                    <label class="label" for="Pseudonym">Pseudonym:</label>
                     <InputText class="form-input" id="Pseudonym" @bind-Value="RegisterModel.Pseudonym" />
                 </div>
                 <ValidationMessage For="@(() => RegisterModel.Pseudonym)" />
 
                 <div class="form-item">
-                    <label class="label">Email:</label>
+                    <label class="label" for="Email">Email:</label>
                     <InputText class="form-input" id="Email" @bind-Value="RegisterModel.Email" />
                 </div>
                 <ValidationMessage For="@(() => RegisterModel.Email)" />
 
                 <div class="form-item">
-                    <label class="label">Password:</label>
-                    <PasswordInput Value="@RegisterModel.Password" ValueChanged="@((val) => RegisterModel.Password = val)" />
+                    <label class="label" for="password">Password:</label>
+                    <PasswordInput Value="@RegisterModel.Password" ValueChanged="@((value) => RegisterModel.Password = value)" />
                 </div>
                 <ValidationMessage For="@(() => RegisterModel.Password)" />
 
@@ -98,15 +98,12 @@
     private LoginModel LoginModel = new();
     private RegisterModel RegisterModel = new();
 
-    private string passwordType = "password";
-    private string EyeIconClass => passwordType == "password" ? "fa fa-eye" : "fa fa-eye-slash";
-
     public string errorMessage { get; set; }
 
     private async Task SubmitLogin()
     {
         var(succeeded, error) = await authService.LoginFullAccountAsync(LoginModel);
-        if (authService.FullAccountAuthenticated == true)
+        if (succeeded)
         {
             // Notify parent to close popup
             await ShowModalChanged.InvokeAsync(false);
@@ -130,13 +127,13 @@
                 //so the new user is now registered, but we now need to log them in
                 var loginModel = new LoginModel
                 {
-                    Pseudonym = RegisterModel.Pseudonym,
+                    Pseudonym = RegisterModel.UppercasedPseudonym,
                     Password = RegisterModel.Password
                 };
 
                 //Attempt automatic login after registration
                 var(succeeded, error) = await authService.LoginFullAccountAsync(loginModel);
-                if (authService.FullAccountAuthenticated == true)
+                if (succeeded)
                 {
                     // Notify parent about successful login, close popup
                     await ShowModalChanged.InvokeAsync(false);
