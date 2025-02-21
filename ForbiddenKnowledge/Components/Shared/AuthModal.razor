@@ -1,8 +1,6 @@
 ﻿@using ForbiddenKnowledge.Data
 @using ForbiddenKnowledge.Services
-@inject HttpClient HttpClient
-@inject NavigationManager NavigationManager
-@inject IAuthService authService
+@inject IAuthService _authService
 
 <div class="modal" style="display:@(ShowModal ? "block" : "none")">
     <div class="modal-content">
@@ -76,7 +74,7 @@
 
                 @if (!string.IsNullOrEmpty(errorMessage))
                 {
-                    <div class="alert alert-danger">@errorMessage</div>
+                    <div class="alert alert-danger">@((MarkupString)errorMessage)</div>
                 }
             </EditForm>
         }
@@ -102,7 +100,7 @@
 
     private async Task SubmitLogin()
     {
-        var(succeeded, error) = await authService.LoginFullAccountAsync(LoginModel);
+        var(succeeded, error) = await _authService.LoginFullAccountAsync(LoginModel);
         if (succeeded)
         {
             // Notify parent to close popup
@@ -119,43 +117,18 @@
 
     private async Task SubmitRegistration()
     {
-        try
+        var(succeeded, error) = await _authService.CreateFullAccount(RegisterModel);
+        if (succeeded)
         {
-            HttpResponseMessage response = await HttpClient.PostAsJsonAsync($"{NavigationManager.BaseUri}api/users/register", RegisterModel);
-            if (response.IsSuccessStatusCode)
-            {
-                //so the new user is now registered, but we now need to log them in
-                var loginModel = new LoginModel
-                {
-                    Pseudonym = RegisterModel.UppercasedPseudonym,
-                    Password = RegisterModel.Password
-                };
+            // Notify parent to close popup
+            await ShowModalChanged.InvokeAsync(false);
 
-                //Attempt automatic login after registration
-                var(succeeded, error) = await authService.LoginFullAccountAsync(loginModel);
-                if (succeeded)
-                {
-                    // Notify parent about successful login, close popup
-                    await ShowModalChanged.InvokeAsync(false);
-                }
-                else
-                {
-                    errorMessage = $"Registration successful, but login failed due to {error}. Please attempt to log in manually.";
-                }
-
-                //Clear input fields
-                RegisterModel = new RegisterModel();               
-            }
-            else
-            {
-                string errorDetails = await response.Content.ReadAsStringAsync();
-                errorMessage = $"Registration failed: {errorDetails}";
-            }
+            //clear input fields
+            RegisterModel = new RegisterModel();
         }
-        catch (Exception ex)
+        else
         {
-            errorMessage = "An unexpected error occurred during registration. Please try again later.";
-            //_logger.LogError(ex, "Registration failed for user {Email}", RegisterModel.Email);
+            errorMessage = error;
         }
     }
 
@@ -168,6 +141,14 @@
     {
         ShowModal = false;
         ShowModalChanged.InvokeAsync(ShowModal);
+    }
+
+
+    [JSInvokable]
+    public void ReceiveFullAccountLoginError(string message)
+    {
+        errorMessage = message;
+        StateHasChanged();
     }
 }
 

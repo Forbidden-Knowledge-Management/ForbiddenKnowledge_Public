@@ -1,6 +1,7 @@
 ﻿@page "/blogposts"
+@using ForbiddenKnowledge.Services
 @inject NavigationManager NavigationManager
-@inject HttpClient HttpClient
+@inject IBlogPostService _blogPostService
 
 <div class="main">
 
@@ -47,7 +48,6 @@
             }
         </div>
     }
-
 </div>
 
 
@@ -59,7 +59,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        blogPosts = await HttpClient.GetFromJsonAsync<List<Data.DbModels.BlogPost>>($"{NavigationManager.BaseUri}api/blogposts");
+        blogPosts = await _blogPostService.GetBlogPosts();
     }
 
 }

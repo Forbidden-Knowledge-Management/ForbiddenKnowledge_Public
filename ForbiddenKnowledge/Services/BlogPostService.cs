@@ -110,8 +110,8 @@ namespace ForbiddenKnowledge.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error submitting new comment.");
-                return (false, $"An error occurred while submitting the comment: {ex.Message}");
+                _logger.LogError(ex, "Unexpected error submitting new comment.");
+                return (false, $"An unexpected error occurred while submitting the comment: {ex.Message}");
             }
         }
 

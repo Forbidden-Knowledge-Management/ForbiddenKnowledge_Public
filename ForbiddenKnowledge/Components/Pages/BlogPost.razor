@@ -4,9 +4,10 @@
 @using ForbiddenKnowledge.Data.DbModels
 @using ForbiddenKnowledge.Services
 @inject ILogger<BlogPost> _logger
-@inject NavigationManager NavigationManager
-@inject HttpClient HttpClient
-@inject IAuthService authService
+@inject IAuthService _authService
+@inject NavigationManager _navigationManager
+@inject IBlogPostService _blogPostService
+@inject IJSRuntime _jsRuntime
 
 
 <div>
@@ -41,11 +42,20 @@
             <!-- Link for sharing and Comments Section -->
             <div class="share-and-comments">
                 <span class="share-links">
-                    <a href="@($"https://twitter.com/share?url={NavigationManager.BaseUri}blogposts/{BlogPostId}")" target="_blank">Share on Twitter</a> |
-                    <a href="@($"https://www.facebook.com/sharer.php?u={NavigationManager.BaseUri}blogposts/{BlogPostId}")" target="_blank">Share on Facebook</a>
+                    <a href="@($"https://twitter.com/share?url={_navigationManager.BaseUri}blogposts/{BlogPostId}")" target="_blank">Share on X</a> |
+                    <a href="@($"https://www.facebook.com/sharer.php?u={_navigationManager.BaseUri}blogposts/{BlogPostId}")" target="_blank">Share on Facebook</a> |
+                    <a href="@($"https://www.instagram.com/")" target="_blank">Share on Instagram</a> |
+                    <a href="@($"https://substack.com/recommend?url={_navigationManager.BaseUri}blogposts/{BlogPostId}")" target="_blank">Share on Substack</a> |
+                    <button class="blue-button copy-link-button" @onclick="CopyLinkToClipboard">Copy Link</button>
                 </span>
+
+                @if (showCopiedMessage)
+                {
+                    <span class="copied-message">✔ Link copied!</span>
+                }
+
                 <span class="comments-link">
-                    | <a href="#comments">Comments</a>
+                    | <button class="blue-button" @onclick="() => ScrollToComments()" @onclick:preventDefault>Scroll to Comments</button>
                 </span>
             </div>
 
@@ -127,12 +137,17 @@
                                 <div class="comment-buttons-container">
                                     <button class="blue-button comment-button" @onclick="OpenAuthModal">Login to account or register a new account</button>
 
-                                    <button class="blue-button comment-button" type="button" @onclick="UseExistingLightweightAccount">Comment without an account using existing pseudonym (@authService.Pseudonym)</button>
+                                    <button class="blue-button comment-button" type="button" @onclick="UseExistingLightweightAccount">Comment without an account using existing pseudonym (@_authService.Pseudonym)</button>
                                 </div>
                             }
                             else
                             {
                                 <!-- Show the comment box if a full account OR if lightweight user confirmed -->
+
+                                <p>
+                                    Hi @_authService.Pseudonym. You are logged in and can comment below.
+                                </p>
+
                                 <div class="comment-input-container">
                                     <textarea placeholder="Write your comment here..." class="comment-text" @bind="newCommentContent"></textarea>
                                     <button class="blue-button submit-comment-button" @onclick="SubmitComment">Submit Comment</button>
@@ -206,6 +221,8 @@
     Data.DbModels.BlogPost? blogPost;
     private bool isLoading = true;
 
+    private bool showCopiedMessage = false;
+
     private bool ShowAuthModal = false;
     private bool useLighweightAccountToComment = false;
 
@@ -220,24 +237,41 @@
     {
         try
         {
-            blogPost = await HttpClient.GetFromJsonAsync<Data.DbModels.BlogPost>($"{NavigationManager.BaseUri}api/blogposts/{BlogPostId}");
+            blogPost = await _blogPostService.GetBlogPostById(BlogPostId);
             if (blogPost != null && blogPost != default)
             {
                 isLoading = false;
             }
 
-            await authService.CheckAuthenticationStatusAsync();
+            await _authService.CheckAuthenticationStatusAsync();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error loading blog post");
+            _logger.LogError(ex, "Unexpected error loading blog post");
         }
+    }
+
+    private async Task CopyLinkToClipboard()
+    {
+        var url = $"{_navigationManager.BaseUri}blogposts/{BlogPostId}";
+
+        await _jsRuntime.InvokeVoidAsync("navigator.clipboard.writeText", url);
+
+        showCopiedMessage = true;
+
+        await Task.Delay(2000); // Show message for 2 seconds
+        showCopiedMessage = false;
+        StateHasChanged();
+    }
+
+    private async Task ScrollToComments()
+    {
+        await _jsRuntime.InvokeVoidAsync("scrollToElement", "comments");
     }
 
     private async Task SubmitComment()
     {
         commentSubmissionErrorMessage = null;
-
         if (string.IsNullOrWhiteSpace(newCommentContent) || newCommentContent.Length <= 4)
         {
             commentSubmissionErrorMessage = "Comment must be at least 5 characters long.";
@@ -245,36 +279,36 @@
         }
 
         isSubmittingComment = true; // Disable the submit comment button while submitting
-
         BlogPostComment newComment = new BlogPostComment
         {
             BlogPostId = BlogPostId,
-            Pseudonym = authService.Pseudonym,
-            Content = newCommentContent
+            Pseudonym = _authService.Pseudonym,
+            Content = newCommentContent,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
         };
 
         try
         {
-            HttpResponseMessage response = await HttpClient.PostAsJsonAsync($"{NavigationManager.BaseUri}api/blogposts/submit-comment", newComment);
-            if (response.IsSuccessStatusCode)
+            var (succeeded, error) = await _blogPostService.SubmitNewComment(newComment);
+            if (succeeded)
             {
                 // Clear the form
                 newCommentContent = string.Empty;
 
-                //retireve the blog post again to get the updated comments
-                blogPost = await HttpClient.GetFromJsonAsync<Data.DbModels.BlogPost>($"{NavigationManager.BaseUri}api/blogposts/{BlogPostId}");
+                //retrieve the blog post again to get the updated comments
+                blogPost = await _blogPostService.GetBlogPostById(BlogPostId);
                 await InvokeAsync(StateHasChanged);
             }
             else
             {
-                // Extract error message from response
-                string jsonError = await response.Content.ReadAsStringAsync();
-                commentSubmissionErrorMessage = ExtractErrorMessage(jsonError);
+                commentSubmissionErrorMessage = error;
             }
         }
         catch (Exception ex)
         {
-            commentSubmissionErrorMessage = $"An unexpected error occurred: {ex.Message}";
+            _logger.LogError(ex, "Unexpected error submitting new blog post comment");
+            commentSubmissionErrorMessage = $"Unexpected error submitting new blog post comment. Inner error: {ex.Message}";
         }
         finally
         {
@@ -285,7 +319,7 @@
     async Task CreateLightWeightAccount()
     {
         createLightWeightAccountErrorMessage = null;
-        var(succeeded, error) = await authService.CreateLightweightAccountIdentityAsync();
+        var(succeeded, error) = await _authService.CreateLightweightAccount();
         if(succeeded)
         {
             //automatically logged in with new lighweight account already
@@ -296,6 +330,13 @@
         {
             createLightWeightAccountErrorMessage = error;
         }
+    }
+
+    [JSInvokable]
+    public void ReceiveLightweightAccountLoginError(string message)
+    {
+        createLightWeightAccountErrorMessage = message;
+        StateHasChanged();
     }
 
     private void UseExistingLightweightAccount()

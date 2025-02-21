@@ -4,11 +4,11 @@ namespace ForbiddenKnowledge.Data
 {
     public class LoginModel
     {
-        [Required]
+        [Required(ErrorMessage = "Please enter your pseudonym")]
         [MaxLength(100)]
         public string Pseudonym { get; set; } = string.Empty;
 
-        [Required]
+        [Required(ErrorMessage = "Please enter your password")]
         public string Password { get; set; } = string.Empty;
 
         public string UppercasedPseudonym => Pseudonym.ToUpperInvariant();

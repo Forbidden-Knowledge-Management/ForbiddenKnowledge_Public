@@ -57,7 +57,10 @@ namespace ForbiddenKnowledge.Services.Audit
                 ResponseStatusCode = auditApiAction.ResponseStatusCode,
                 DurationMilliseconds = auditEvent.Duration,
 
-                UserName = auditApiAction.UserName != null ? string.Create(Math.Min(256, auditApiAction.UserName.Length), auditApiAction.UserName, (span, input) => input.AsSpan(0, Math.Min(256, input.Length)).CopyTo(span)) : null,
+                //UserName = auditApiAction.UserName != null ? string.Create(Math.Min(256, auditApiAction.UserName.Length), auditApiAction.UserName, (span, input) => input.AsSpan(0, Math.Min(256, input.Length)).CopyTo(span)) : null,
+                // FK isn't recording usernames for privacy reasons. we don't want to associate IP addresses with users.
+                UserName = null,
+
                 UserAgent = auditApiAction.Headers.ContainsKey("User-Agent") == true ? string.Create(Math.Min(512, auditApiAction.Headers["User-Agent"].Length), auditApiAction.Headers["User-Agent"], (span, input) => input.AsSpan(0, Math.Min(512, input.Length)).CopyTo(span)) : null,
                 RequestBody = auditApiAction.RequestBody != null ? string.Create(Math.Min(2000, auditApiAction.RequestBody.ToString().Length), auditApiAction.RequestBody.ToString(), (span, input) => input.AsSpan(0, Math.Min(2000, input.Length)).CopyTo(span)) : null,
                 ResponseBody = auditApiAction.ResponseBody != null ? string.Create(Math.Min(2000, auditApiAction.ResponseBody.ToString().Length), auditApiAction.ResponseBody.ToString(), (span, input) => input.AsSpan(0, Math.Min(2000, input.Length)).CopyTo(span)) : null,

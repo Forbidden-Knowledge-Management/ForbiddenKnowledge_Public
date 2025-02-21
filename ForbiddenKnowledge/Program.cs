@@ -51,12 +51,8 @@ try
     // services needed by the blazor web stack
     // The antiforgery service is not needed for Blazor. SignalR connections are not vulnerable to CSRF attacks like tradtional HTTP requests.
 
-    var handler = new HttpClientHandler { UseCookies = true };  // Enable cookies for HttpClient
-    var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://localhost:7085") };
-
     builder.Services.AddRazorComponents().AddInteractiveServerComponents();      // Needed for Blazor components
     builder.Services.AddControllers();          // Enables API controllers
-    builder.Services.AddSingleton(httpClient);  // Register the custom HttpClient as a singleton (ensures cookies persist)
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddSignalR();              // Add SignalR services. needed for SignalR logging.
     builder.Services.AddSingleton(TimeProvider.System);
@@ -161,7 +157,6 @@ try
     //The order below is correct. Https redirection, static files, and routing come first, then authentication and authorization.
     app.UseHttpsRedirection();
     app.UseStaticFiles();
-    //app.UseRouting();
     app.UseAuthentication();
     app.UseAuthorization();
     app.UseAntiforgery();
@@ -181,10 +176,8 @@ try
      .IncludeResponseHeaders() // Optionally include response headers
     );
 
-    //app.MapRazorPages();
     app.MapControllers();               // Maps API controllers
     app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
-
     app.MapHub<LoggingHub>("/logginghub"); //This is needed to log SignalR activity
 
     app.Run();

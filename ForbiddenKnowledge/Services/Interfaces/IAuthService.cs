@@ -12,13 +12,9 @@ namespace ForbiddenKnowledge.Services
 
         Task LogoutFullAccountAsync();
 
-        Task<(bool Succeeded, string? Error)> CreateLightweightAccountIdentityAsync();
+        Task<(bool Succeeded, string? Error)> CreateLightweightAccount();
 
-
-
-
-
-
+        Task<(bool Succeeeded, string? Error)> CreateFullAccount(RegisterModel registerModel);
 
 
 

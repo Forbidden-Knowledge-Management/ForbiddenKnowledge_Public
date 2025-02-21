@@ -1,9 +1,9 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.DependencyInjection;
+using System.Reflection;
 
 using ForbiddenKnowledge.Data.DbModels;
+
 
 namespace ForbiddenKnowledge.Data
 {
@@ -72,16 +72,21 @@ namespace ForbiddenKnowledge.Data
             try
             {
                 //Weird situation here.
-                //When _userManager.CreateAsync() is called, .NET Identity will already execute an INSERT command against the DB before this method even runs.
+                //When  is called to create full accounts, .NET Identity will already execute an INSERT command against the DB before this method even runs.
                 //so, if we attempt to add the new user to the DB ourselves via EF, we will get a PK violation because it is a duplicate.
-                //However, the IUserStore interface requires us to have a CreateAsync method
-                //So we simply just return a success result here.
-                _logger.LogInformation("CreateAsync in CustomUserStore called, but skipping manual insertion due to .NET Identity behavior.");
+                //However, the when _userManager.CreateAsync(user) is called (no password) for lightweight accounts, .NET Identity does NOT make the DB record automatically.
+                //So we need to deal with that ourselves
+                if (user.Email == null && user.PasswordHash == null && user.UppercasedPseudonym.StartsWith("ANONYMOUSUSER"))
+                {
+                    _forbiddenKnowledgeContext.Users.Add(user);
+                    await _forbiddenKnowledgeContext.SaveChangesAsync(cancellationToken);
+                    return IdentityResult.Success;
+                }
                 return IdentityResult.Success;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating user {Pseudonym}", user.OriginalPseudonym);
+                _logger.LogError(ex, $"{MethodBase.GetCurrentMethod().Name}: Error creating user {user.OriginalPseudonym}");
                 return IdentityResult.Failed(new IdentityError { Description = ex.Message });
             }
         }

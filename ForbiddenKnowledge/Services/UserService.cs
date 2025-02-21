@@ -1,11 +1,14 @@
 ﻿using System.Net.Mail;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.JSInterop;
+using System.Reflection;
+using System.Net;
 
-using DnsClient;
+using DnsClientX;
 
 using ForbiddenKnowledge.Data.DbModels;
 using ForbiddenKnowledge.Data;
-using Microsoft.EntityFrameworkCore;
 
 
 
@@ -18,28 +21,40 @@ namespace ForbiddenKnowledge.Services
         private readonly ForbiddenKnowledgeContext _forbiddenKnowledgeContext;
         private readonly AuditDbContext _auditDbContext;
         private readonly ILogger _logger;
+        private readonly IJSRuntime _jSRuntime;
 
-        public UserService(UserManager<User> userManager, SignInManager<User> signInManager, ForbiddenKnowledgeContext forbiddenKnowledgeContext, AuditDbContext auditDbContext, ILogger<UserService> logger)
+        public UserService(UserManager<User> userManager, SignInManager<User> signInManager, ForbiddenKnowledgeContext forbiddenKnowledgeContext, AuditDbContext auditDbContext, ILogger<UserService> logger, IJSRuntime jSRuntime)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _forbiddenKnowledgeContext = forbiddenKnowledgeContext;
             _auditDbContext = auditDbContext;
             _logger = logger;
+            _jSRuntime = jSRuntime;
         }
 
         /// <summary>
-        /// This handles creating new Full user accounts and new Lightweight user accounts. Both are stored in the same "external_user" DB table.
+        /// This handles creating new Full user accounts and new Lightweight user accounts via .NET Identity.
+        /// Both are stored in the same "external_user" DB table.
         /// </summary>
         /// <param name="originalPseudonym"></param>
         /// <param name="email"></param>
         /// <param name="password"></param>
         /// <returns></returns>
-        public async Task<(bool Succeeded, IEnumerable<IdentityError> Errors)> RegisterUserAsync(string originalPseudonym, string uppercasedPseudonym, string? email = null, string? password = null)
+        public async Task<(bool Succeeded, IEnumerable<IdentityError> Errors)> CreateNewFullAccountWithIdentityAsync(string originalPseudonym, string uppercasedPseudonym, string email, string password)
         {
+            List<IdentityError> errors = new List<IdentityError>();
+            if (string.IsNullOrWhiteSpace(originalPseudonym) || string.IsNullOrWhiteSpace(uppercasedPseudonym) || string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+            {
+                _logger.LogWarning($"{MethodBase.GetCurrentMethod().Name}: Missing required parameters.");
+                errors.Add(new IdentityError() { Code = "Missing required parameters", Description = "Pseudonym, email, and password are required to create a new Full account." });
+                return (false, errors);
+            }
+
             var pseudonymUniquenessCheckResult = CheckPseudonymUniqueness(uppercasedPseudonym);
             if (pseudonymUniquenessCheckResult.Result.Succeeded == false)
             {
+                _logger.LogWarning($"{MethodBase.GetCurrentMethod().Name}: Full account creation failed for {originalPseudonym}. Pseudonym is not unique.");
                 return (false, pseudonymUniquenessCheckResult.Result.Errors);
             }
             else
@@ -52,29 +67,15 @@ namespace ForbiddenKnowledge.Services
                     CreatedAt = DateTime.UtcNow
                 };
 
-                IdentityResult result;
-                if (string.IsNullOrEmpty(password))
+                //For Full accounts, we need to validate the email address.
+                //.NET Identity will automatically validate the password based on rules configured in Program.cs.
+                var emailValidationResult = await ValidateEmail(email);
+                if (emailValidationResult.Succeeded == false)
                 {
-                    //Lighweight account, still created and managed by .NET Identity.
-                    result = await _userManager.CreateAsync(user);
-
-                    //for lightweight accounts, it is very important that we also sign the user in.
-                    //When the user is signed in using the .NET Identity method below, it will automatically create a cookie so that the lighweight user can be authenticated.
-                    //because the cookie is all they have, no password or email.
-                    await _signInManager.SignInAsync(user, isPersistent: true);
+                    _logger.LogWarning($"{MethodBase.GetCurrentMethod().Name}: Full account creation failed for {originalPseudonym}. Email validation failed is not unique.");
+                    return (false, emailValidationResult.Errors);
                 }
-                else
-                {
-                    //For Full accounts, we need to validate the email address.
-                    //.NET Identity will automatically validate the password based on rules configured in Program.cs.
-                    var emailValidationResult = ValidateEmail(email);
-                    if (emailValidationResult.Result.Succeeded == false)
-                    {
-                        return (false, emailValidationResult.Result.Errors);
-                    }
-                    result = await _userManager.CreateAsync(user, password);
-                }
-
+                IdentityResult result = await _userManager.CreateAsync(user, password);
                 return (result.Succeeded, result.Errors);
             }
         }
@@ -87,20 +88,30 @@ namespace ForbiddenKnowledge.Services
                 return (false, "Pseudonym not found");
             }
 
-            SignInResult signInResult = await _signInManager.PasswordSignInAsync(user, password, isPersistent: true, lockoutOnFailure: false);
-            _logger.LogInformation("SignInResult: {Result}", signInResult.Succeeded);
-            if (signInResult.Succeeded)
+            SignInResult passwordCheckResult = await _signInManager.CheckPasswordSignInAsync(user, password, false);
+            _logger.LogInformation($"{MethodBase.GetCurrentMethod().Name}: Password check: {passwordCheckResult.Succeeded}");
+            if (passwordCheckResult.Succeeded)
             {
-                await _signInManager.SignInAsync(user, isPersistent: true);
+                // Call a JS snippet that makes a fetch() request to retrieve auth cookie to log user in.
+                // This is neccesary because cookies can NOT be sent to the client over Websockets.
+                // so, this JS snippet makes the client send an http request, such that the response to the client will include the clients cookie.
+                // of course, the API controller method hit by the fetch request still needs to validate the password because it is an open endpoint, it needs to be unprotected because it is used for login.
+                // the password check done above is just a convenience to make it is easier for us to handle incorrect passwords in blazor.
+                // If the fetch request returns to the client successfully, the JS snippet then reloads the page.
+                // The fresh http request made by the client on page reload will now include the auth cookie.
+                // consequently, this will start a Websocket session with blazor where we can use Blazor's AuthenticationStateProvider to check if the user is logged in.
+                await _jSRuntime.InvokeVoidAsync("loginFullUserViaXHR", uppercasedPseudonym, password);
                 return (true, null);
             }
 
-            string errorMessage = signInResult.IsLockedOut ? "Account is locked."
-                  : signInResult.IsNotAllowed ? "Login not allowed."
-                  : signInResult.RequiresTwoFactor ? "Two-factor authentication required."
-                  : "Invalid password.";
+            //SignInResult signInResult = await _signInManager.PasswordSignInAsync(user, password, isPersistent: true, lockoutOnFailure: false);
+            
+            string errorMessage = passwordCheckResult.IsLockedOut ? "Account is locked."
+                  : passwordCheckResult.IsNotAllowed ? "Login not allowed."
+                  : passwordCheckResult.RequiresTwoFactor ? "Two-factor authentication required."
+                  : "Incorrect password.";
 
-            return (signInResult.Succeeded, errorMessage);
+            return (passwordCheckResult.Succeeded, errorMessage);
         }
 
         public async Task LogoutUserAsync()
@@ -195,12 +206,24 @@ namespace ForbiddenKnowledge.Services
             // 3. The domain has an MX record
             try
             {
-                LookupClient lookupClient = new LookupClient();
-                var result = await lookupClient.QueryAsync(domain, QueryType.MX);
-                return result.Answers.MxRecords().Any();
+                DnsResponse dnsResponse = await ClientX.QueryDns(domain, DnsRecordType.MX, DnsEndpoint.Cloudflare, DnsSelectionStrategy.Failover, 5000);
+                if (dnsResponse.Status == DnsResponseCode.NoError)
+                {
+                    foreach (DnsAnswer dnsAnswer in dnsResponse.Answers)
+                    {
+                        _logger.LogInformation($"{MethodBase.GetCurrentMethod().Name}| DNS MX query finished - RESPONSE: {dnsAnswer.Data}");
+                    }
+                    return true;
+                }
+                else
+                {
+                    _logger.LogInformation($"{MethodBase.GetCurrentMethod().Name}: DNS MX query failed: {dnsResponse.Status}");
+                    return false;
+                }
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogError($"{MethodBase.GetCurrentMethod().Name}: Unexpected error occurred while making domain MX record check. Exception: {ex}");
                 return false;
             }
         }

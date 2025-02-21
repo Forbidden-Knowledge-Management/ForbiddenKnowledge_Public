@@ -43,7 +43,7 @@
 
 			var errorLocation = $"{typeName}.{methodName}";
 
-			_logger.LogError(ex, $"An unhandled exception occurred in {errorLocation}: {ex.Message}");
+			_logger.LogError(ex, $"FK Error Logger: An unhandled exception occurred in {errorLocation}: {ex.Message}");
 		}
 	}
 }

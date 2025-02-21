@@ -5,21 +5,103 @@
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <base href="/" />
+
+        <!-- local stylesheets and other resources -->
         <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
         <link rel="stylesheet" href="css/app.css" />
         <link rel="stylesheet" href="ForbiddenKnowledge.styles.css" />
-        
+        <link rel="icon" type="image/png" href="favicon.png" />
 
+        <!-- remote stylesheets -->
+        <!-- right now this is just used for the eye icon to mask ans unmask the pw input field -->
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
 
-        <link rel="icon" type="image/png" href="favicon.png" /> 
+
         <HeadOutlet />
     </head>
 
     <body>
         <Routes />   <!-- This references Routes.razor, which handles routing -->
         <script src="_framework/blazor.web.js"></script>
+
+        <!-- This custom JS snippet below is used to copy text to the user's clipboard  -->
+        <script>
+            window.copyToClipboard = (text) => {
+                navigator.clipboard.writeText(text).then(() => {
+                    console.log('Copied to clipboard:', text);
+                }).catch(err => {
+                    console.error('Clipboard copy failed:', err);
+                });
+            };
+        </script>
+
+        <!-- This is used to scroll to other elements on the same page -->
+        <script>
+            window.scrollToElement = (elementId) => {
+                var element = document.getElementById(elementId);
+                if (element) {
+                    element.scrollIntoView({ behavior: "smooth" });
+                }
+            };
+        </script>
+
+        <!-- 
+            Important. This makes a Fetch request (so http request) to the app's generate-login-cookie-full endpoint.
+            Cookies can NOT be provided to a client browser via Websockets, so this JS snippet is used to get the client
+            to send an HTTP request to the endpoint which generates their cookie, and returns it to them in the Http response.
+            The JS snippet below is specifically for Full Account. There is another snippet below for Lightweight accounts.
+        -->
+        <script>
+            window.loginFullUserViaXHR = async function (pseudonym, password) {
+                try {
+                    let response = await fetch("/api/login/generate-login-cookie-full", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ pseudonym, password }),
+                        credentials: "include"
+                    });
+
+                    if (response.ok) {
+                        // Reload page after login to apply new authentication state
+                        window.location.reload();
+                    } else {
+                        let errorData = await response.json();
+                        let errorMessage = errorData.message || "Invalid credentials.";
+
+                        // Send error message back to Blazor so UI can update
+                        DotNet.invokeMethodAsync("ForbiddenKnowledge", "ReceiveFullAccountLoginError", errorMessage);
+                    }
+                } catch (error) {
+                    console.error("Login failed", error);
+                }
+            };
+        </script>
+
+        <script>
+            window.createAndLoginLightweightUserViaXHR = async function () {
+                try {
+                    let response = await fetch("/api/login/generate-login-cookie-lighweight", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        credentials: "include"
+                    });
+
+                    if (response.ok) {
+                        // Reload page after login to apply new authentication state
+                        window.location.reload();
+                    } else {
+                        let errorData = await response.json();
+                        let errorMessage = errorData.message || "Invalid credentials.";
+
+                        // Send error message back to Blazor so UI can update
+                        DotNet.invokeMethodAsync("ForbiddenKnowledge", "ReceiveLightweightAccountLoginError", errorMessage);
+                    }
+                } catch (error) {
+                    console.error("Login failed", error);
+                }
+            };
+        </script>
     </body>
 
 </html>
