@@ -10,6 +10,8 @@ using DnsClientX;
 
 using ForbiddenKnowledge.Data.DbModels;
 using ForbiddenKnowledge.Data;
+using Org.BouncyCastle.Pqc.Crypto.Lms;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 
 
@@ -94,7 +96,7 @@ namespace ForbiddenKnowledge.Services
                 return (false, "Pseudonym not found");
             }
 
-            SignInResult passwordCheckResult = await _signInManager.CheckPasswordSignInAsync(user, password, false);
+            SignInResult passwordCheckResult = await _signInManager.CheckPasswordSignInAsync(user, password, lockoutOnFailure: true);
             _logger.LogInformation($"{MethodBase.GetCurrentMethod().Name}: Password check: {passwordCheckResult.Succeeded}");
             if (passwordCheckResult.Succeeded)
             {
@@ -110,9 +112,7 @@ namespace ForbiddenKnowledge.Services
                 return (true, null);
             }
 
-            //SignInResult signInResult = await _signInManager.PasswordSignInAsync(user, password, isPersistent: true, lockoutOnFailure: false);
-            
-            string errorMessage = passwordCheckResult.IsLockedOut ? "Account is locked."
+            string errorMessage = passwordCheckResult.IsLockedOut ? "Your account has been locked due to too many failed login attempts. The lockout will end in 1 hour."
                   : passwordCheckResult.IsNotAllowed ? "Login not allowed."
                   : passwordCheckResult.RequiresTwoFactor ? "Two-factor authentication required."
                   : "Incorrect password.";
