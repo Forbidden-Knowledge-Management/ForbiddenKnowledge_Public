@@ -45,23 +45,37 @@ namespace ForbiddenKnowledge.Controllers
             }
 
             User user = await _userManager.FindByNameAsync(loginModel.Pseudonym);
-            if (user == null)
+            if (user == null || user == default)
             {
                 _logger.LogWarning($"{MethodBase.GetCurrentMethod().Name}: Invalid login attempt. User Pseudonym does not exist.");
                 return Unauthorized("Invalid login attempt. Pseudonym does not exist.");
             }
 
-            Microsoft.AspNetCore.Identity.SignInResult signInResult = await _signInManager.PasswordSignInAsync(user, loginModel.Password, isPersistent: true, lockoutOnFailure: false);
+            //Check if the user is locked out
+            if (await _userManager.IsLockedOutAsync(user))
+            {
+                _logger.LogWarning($"{MethodBase.GetCurrentMethod().Name}: {loginModel.Pseudonym} has been locked due to too many failed login attempts.");
+                return StatusCode(423, $"Your account has been locked due to too many failed login attempts. The lockout will end in 1 hour.");
+            }
+
+            Microsoft.AspNetCore.Identity.SignInResult signInResult = await _signInManager.PasswordSignInAsync(user, loginModel.Password, isPersistent: true, lockoutOnFailure: true);
             if (signInResult.Succeeded)
             {
+                //Reset failed attempts after successful login
+                await _userManager.ResetAccessFailedCountAsync(user);
                 _logger.LogInformation($"{MethodBase.GetCurrentMethod().Name}: {loginModel.Pseudonym} succeessfully logged in.");
                 return Ok();
             }
 
-            string errorMessage = signInResult.IsLockedOut ? "Account is locked."
+            string errorMessage = signInResult.IsLockedOut ? "Your account has been locked due to too many failed login attempts. The lockout will end in 1 hour."
                   : signInResult.IsNotAllowed ? "Login not allowed."
                   : signInResult.RequiresTwoFactor ? "Two-factor authentication required."
                   : "Incorrect password.";
+
+            if (signInResult.IsLockedOut)
+            {
+                return StatusCode(423, $"Your account has been locked due to too many failed login attempts. The lockout will end in 1 hour.");
+            }
 
             _logger.LogWarning($"{MethodBase.GetCurrentMethod().Name}: Invalid login attempt for {loginModel.Pseudonym}. {errorMessage}.");
             return Unauthorized(new { message = $"Invalid login attempt: {errorMessage}" });

@@ -37,6 +37,18 @@ namespace ForbiddenKnowledge.Data.DbModels
         [Column("created_at")]
         public DateTime CreatedAt { get; set; }
 
+        [Column("security_stamp")]
+        public string? SecurityStamp { get; set; }
+
+        [Required]
+        [Column("access_failed_count")]
+        public int AccessFailedCount { get; set; }
+
+        [Column("lockout_end")]
+        public DateTime? LockoutEnd { get; set; }
+
+        [Column("lockout_enabled")]
+        public bool LockoutEnabled { get; set; }
 
         // Required by Identity for case-insensitive email comparison
         [NotMapped]

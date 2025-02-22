@@ -3,39 +3,55 @@ using Microsoft.EntityFrameworkCore;
 using System.Reflection;
 
 using ForbiddenKnowledge.Data.DbModels;
+using Microsoft.EntityFrameworkCore.Internal;
 
 
 namespace ForbiddenKnowledge.Data
 {
-    public class CustomUserStore : IUserStore<User>, IUserPasswordStore<User>
+    public class CustomUserStore : IUserStore<User>, IUserPasswordStore<User>, IUserSecurityStampStore<User>, IUserLockoutStore<User>
     {
-        private readonly ForbiddenKnowledgeContext _forbiddenKnowledgeContext;
+        private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<CustomUserStore> _logger;
 
 
-        public CustomUserStore(ForbiddenKnowledgeContext forbiddenKnowledgeContext, ILogger<CustomUserStore> logger)
+        public CustomUserStore(IServiceProvider serviceProvider, ILogger<CustomUserStore> logger)
         {
-            _forbiddenKnowledgeContext = forbiddenKnowledgeContext;
+            _serviceProvider = serviceProvider;
             _logger = logger;
+        }
+
+        private ForbiddenKnowledgeContext CreateDbContext()
+        {
+            var scope = _serviceProvider.CreateScope(); // Create a new DI scope
+            return scope.ServiceProvider.GetRequiredService<ForbiddenKnowledgeContext>(); // Get a new scoped DbContext
         }
 
         //Please note that this method in the IUserStore interface is defined with a string as the first param
         public async Task<User?> FindByIdAsync(string userId, CancellationToken cancellationToken)
         {
+            //Use a NEW DbContext instance to avoid concurrency issues
+            using ForbiddenKnowledgeContext forbiddenKnowledgeContext = CreateDbContext();
+
             if (!int.TryParse(userId, out var id)) return null;
-            return await _forbiddenKnowledgeContext.Users.FindAsync(id, cancellationToken);
+            return await forbiddenKnowledgeContext.Users.FindAsync(id, cancellationToken);
         }
 
         public async Task<User?> FindByNameAsync(string name, CancellationToken cancellationToken)
         {
-            return await _forbiddenKnowledgeContext.Users
+            //Use a NEW DbContext instance to avoid concurrency issues
+            using ForbiddenKnowledgeContext forbiddenKnowledgeContext = CreateDbContext();
+
+            return await forbiddenKnowledgeContext.Users
                         .AsNoTracking()
                         .FirstOrDefaultAsync(u => u.UppercasedPseudonym == name.ToUpper(), cancellationToken);
         }
 
         public async Task<User?> FindByEmailAsync(string email, CancellationToken cancellationToken)
         {
-            return await _forbiddenKnowledgeContext.Users
+            //Use a NEW DbContext instance to avoid concurrency issues
+            using ForbiddenKnowledgeContext forbiddenKnowledgeContext = CreateDbContext();
+
+            return await forbiddenKnowledgeContext.Users
                         .AsNoTracking()
                         .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
         }
@@ -78,8 +94,11 @@ namespace ForbiddenKnowledge.Data
                 //So we need to deal with that ourselves
                 if (user.Email == null && user.PasswordHash == null && user.UppercasedPseudonym.StartsWith("ANONYMOUSUSER"))
                 {
-                    _forbiddenKnowledgeContext.Users.Add(user);
-                    await _forbiddenKnowledgeContext.SaveChangesAsync(cancellationToken);
+                    //Use a NEW DbContext instance to avoid concurrency issues
+                    using ForbiddenKnowledgeContext forbiddenKnowledgeContext = CreateDbContext();
+
+                    forbiddenKnowledgeContext.Users.Add(user);
+                    await forbiddenKnowledgeContext.SaveChangesAsync(cancellationToken);
                     return IdentityResult.Success;
                 }
                 return IdentityResult.Success;
@@ -91,17 +110,20 @@ namespace ForbiddenKnowledge.Data
             }
         }
 
-        public Task<IdentityResult> UpdateAsync(User user, CancellationToken cancellationToken)
+        public async Task<IdentityResult> UpdateAsync(User user, CancellationToken cancellationToken)
         {
             try
             {
-                _forbiddenKnowledgeContext.Users.Update(user);
-                _forbiddenKnowledgeContext.SaveChangesAsync(cancellationToken);
-                return Task.FromResult(IdentityResult.Success);
+                //Use a NEW DbContext instance to avoid concurrency issues
+                using ForbiddenKnowledgeContext forbiddenKnowledgeContext = CreateDbContext();
+
+                forbiddenKnowledgeContext.Users.Update(user);
+                await forbiddenKnowledgeContext.SaveChangesAsync(cancellationToken);
+                return IdentityResult.Success;
             }
             catch (Exception ex)
             {
-                return Task.FromResult(IdentityResult.Failed(new IdentityError { Description = ex.Message }));
+                return IdentityResult.Failed(new IdentityError { Description = ex.Message });
             }
         }
 
@@ -109,8 +131,11 @@ namespace ForbiddenKnowledge.Data
         {
             try
             {
-                _forbiddenKnowledgeContext.Users.Remove(user);
-                await _forbiddenKnowledgeContext.SaveChangesAsync(cancellationToken);
+                //Use a NEW DbContext instance to avoid concurrency issues
+                using ForbiddenKnowledgeContext forbiddenKnowledgeContext = CreateDbContext();
+
+                forbiddenKnowledgeContext.Users.Remove(user);
+                await forbiddenKnowledgeContext.SaveChangesAsync(cancellationToken);
                 return IdentityResult.Success;
             }
             catch (Exception ex)
@@ -133,16 +158,113 @@ namespace ForbiddenKnowledge.Data
         public async Task SetPasswordHashAsync(User user, string passwordHash, CancellationToken cancellationToken)
         {
             user.PasswordHash = passwordHash;
-            _forbiddenKnowledgeContext.Users.Update(user);
-            await _forbiddenKnowledgeContext.SaveChangesAsync(cancellationToken);
+
+            //Use a NEW DbContext instance to avoid concurrency issues
+            using ForbiddenKnowledgeContext forbiddenKnowledgeContext = CreateDbContext();
+
+            forbiddenKnowledgeContext.Users.Update(user);
+            await forbiddenKnowledgeContext.SaveChangesAsync(cancellationToken);
         }
 
+        public async Task<string> GetSecurityStampAsync(User user, CancellationToken cancellationToken)
+        {
+            //Use a NEW DbContext instance to avoid concurrency issues
+            using ForbiddenKnowledgeContext forbiddenKnowledgeContext = CreateDbContext();
+
+            return await forbiddenKnowledgeContext.Users
+                .Where(u => u.Id == user.Id)
+                .Select(u => u.SecurityStamp)
+                .FirstOrDefaultAsync(cancellationToken) ?? string.Empty;
+        }
+
+        public async Task SetSecurityStampAsync(User user, string stamp, CancellationToken cancellationToken)
+        {
+            user.SecurityStamp = stamp;
+
+            //Use a NEW DbContext instance to avoid concurrency issues
+            using ForbiddenKnowledgeContext forbiddenKnowledgeContext = CreateDbContext();
+            forbiddenKnowledgeContext.Users.Update(user);
+            await forbiddenKnowledgeContext.SaveChangesAsync(cancellationToken);
+        }
+
+
+        public Task<bool> GetLockoutEnabledAsync(User user, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(user.LockoutEnabled);
+        }
+
+        public async Task SetLockoutEnabledAsync(User user, bool enabled, CancellationToken cancellationToken)
+        {
+            user.LockoutEnabled = enabled;
+
+            //Use a NEW DbContext instance to avoid concurrency issues
+            using ForbiddenKnowledgeContext forbiddenKnowledgeContext = CreateDbContext();
+
+            forbiddenKnowledgeContext.Users.Update(user);
+            await forbiddenKnowledgeContext.SaveChangesAsync(cancellationToken);
+        }
+
+        public Task<int> GetAccessFailedCountAsync(User user, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(user.AccessFailedCount);
+        }
+
+        public async Task SetAccessFailedCountAsync(User user, int count, CancellationToken cancellationToken)
+        {
+            user.AccessFailedCount = count;
+
+            //Use a NEW DbContext instance to avoid concurrency issues
+            using ForbiddenKnowledgeContext forbiddenKnowledgeContext = CreateDbContext();
+
+            forbiddenKnowledgeContext.Users.Update(user);
+            await forbiddenKnowledgeContext.SaveChangesAsync(cancellationToken);
+        }
+
+        public async Task ResetAccessFailedCountAsync(User user, CancellationToken cancellationToken)
+        {
+            user.AccessFailedCount = 0;
+
+            //Use a NEW DbContext instance to avoid concurrency issues
+            using ForbiddenKnowledgeContext forbiddenKnowledgeContext = CreateDbContext();
+
+            forbiddenKnowledgeContext.Users.Update(user);
+            await forbiddenKnowledgeContext.SaveChangesAsync(cancellationToken);
+        }
+
+        public async Task<DateTimeOffset?> GetLockoutEndDateAsync(User user, CancellationToken cancellationToken)
+        {
+            return user.LockoutEnd;
+        }
+
+        public async Task SetLockoutEndDateAsync(User user, DateTimeOffset? lockoutEnd, CancellationToken cancellationToken)
+        {
+            user.LockoutEnd = lockoutEnd?.UtcDateTime;
+
+            //Use a NEW DbContext instance to avoid concurrency issues
+            using ForbiddenKnowledgeContext forbiddenKnowledgeContext = CreateDbContext();
+
+            forbiddenKnowledgeContext.Users.Update(user);
+            await forbiddenKnowledgeContext.SaveChangesAsync(cancellationToken);
+        }
+
+        public async Task<int> IncrementAccessFailedCountAsync(User user, CancellationToken cancellationToken)
+        {
+            user.AccessFailedCount++;
+
+            //Use a NEW DbContext instance to avoid concurrency issues
+            using ForbiddenKnowledgeContext forbiddenKnowledgeContext = CreateDbContext();
+
+            forbiddenKnowledgeContext.Users.Update(user);
+            await forbiddenKnowledgeContext.SaveChangesAsync(cancellationToken);
+            return user.AccessFailedCount;
+        }
 
 
 
         public void Dispose()
         {
-            _forbiddenKnowledgeContext.Dispose();
+            // Do NOT dispose of _forbiddenKnowledgeContext manually.
+            // The DI container will handle it when the scope ends.
         }
 
     }

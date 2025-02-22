@@ -10,13 +10,11 @@ namespace ForbiddenKnowledge.Services
 
         Task LogoutUserAsync();
 
+        Task<(bool Succeeded, string? Error)> RequestPasswordResetAsync(string pseudonymOrEmail);
+
         Task<bool> IsRateLimitedForLightweightAccounts(string ipAddress);
 
-
-
-
-
-
+        Task<(bool Succeeded, IEnumerable<IdentityError> Errors)> ResetPasswordAsync(string pseudonym, string resetCode, string newPassword);
 
 
 

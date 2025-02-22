@@ -78,9 +78,9 @@ try
         options.Password.RequireLowercase = true;
         options.Password.RequireDigit = true;
 
-        //options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(10);
-        //options.Lockout.MaxFailedAccessAttempts = 5;
-        //options.Lockout.AllowedForNewUsers = true;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromHours(1);
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.Lockout.AllowedForNewUsers = true;
 
         //options.User.AllowedUserNameCharacters =
         //"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+";
@@ -127,6 +127,7 @@ try
 
     //Custom Services
     builder.Services.AddScoped<IUserStore<User>, CustomUserStore>();
+    builder.Services.AddScoped<IEmailService, EmailService>();
     builder.Services.AddScoped<IUserService, UserService>();
     builder.Services.AddScoped<IAuthService, AuthService>();
     builder.Services.AddScoped<IBlogPostService, BlogPostService>();

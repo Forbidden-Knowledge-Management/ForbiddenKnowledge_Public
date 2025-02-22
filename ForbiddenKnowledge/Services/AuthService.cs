@@ -1,7 +1,10 @@
 ﻿using ForbiddenKnowledge.Data;
+using ForbiddenKnowledge.Data.DbModels;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.JSInterop;
+using System.Reflection;
 using System.Security.Claims;
 
 namespace ForbiddenKnowledge.Services
@@ -128,6 +131,50 @@ namespace ForbiddenKnowledge.Services
             }
         }
 
+        public async Task<(bool Succeeded, string? Error)> RequestPasswordResetAsync(PasswordResetRequestModel passwordResetRequestModel)
+        {
+            if (string.IsNullOrWhiteSpace(passwordResetRequestModel.PseudonymOrEmail))
+            {
+                return (false, "Please provide either the Pseudonym or Email associated with your account.");
+            }
+
+            var (succeeded, error) = await _userService.RequestPasswordResetAsync(passwordResetRequestModel.PseudonymOrEmail);
+            if (succeeded)
+            {
+                _logger.LogInformation($"{MethodBase.GetCurrentMethod().Name}: Password reset request made for {passwordResetRequestModel.PseudonymOrEmail}. Email sent.");
+                return (true, $"Password reset request made for {passwordResetRequestModel.PseudonymOrEmail}. Email sent.");
+            }
+            else
+            {
+                _logger.LogInformation($"{MethodBase.GetCurrentMethod().Name}: Password reset request for {passwordResetRequestModel.PseudonymOrEmail} failed. Inner Error: {error}");
+                return (false, $"Password reset request for {passwordResetRequestModel.PseudonymOrEmail} failed. Inner Error: {error}");
+            }
+        }
+
+        public async Task<(bool Succeeded, string? Error)> PasswordResetAsync(PasswordResetModel passwordResetModel)
+        {
+            if (string.IsNullOrWhiteSpace(passwordResetModel.Pseudonym) || string.IsNullOrWhiteSpace(passwordResetModel.ResetCode) || string.IsNullOrWhiteSpace(passwordResetModel.Password))
+            {
+
+                return (false, "Please provide your pseudonym, the password reset code you received in an email, and the new password you would like to set for your account.");
+            }
+
+            var (succeeded, errors) = await _userService.ResetPasswordAsync(passwordResetModel.Pseudonym, passwordResetModel.ResetCode, passwordResetModel.Password);
+            if (succeeded)
+            {
+                _logger.LogInformation($"{MethodBase.GetCurrentMethod().Name}: Password reset successful for {passwordResetModel.Pseudonym}.");
+                return (true, null);
+            }
+            else
+            {
+                string errorsForLogs = string.Join("<br>", errors.Select(e => $"{e.Code}"));
+                string errorsForFrontend = string.Join("<br>", errors.Select(e => $"{e.Description}"));
+
+                _logger.LogError($"{MethodBase.GetCurrentMethod().Name}: Password reset for {passwordResetModel.Pseudonym} failed. Inner Error: {errorsForLogs}");
+                return (false, $"Password reset for {passwordResetModel.Pseudonym} failed. Inner Error: {errorsForFrontend}");
+            }
+
+        }
 
     }
 }

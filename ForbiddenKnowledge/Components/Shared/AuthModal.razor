@@ -9,33 +9,105 @@
 
         @if (IsLoginMode)
         {
-            <p>
-                If you already have an account on Forbidden Knowledge, please enter your Pseudonym and Password below to login.
-                If you do not have an account and would like to make one, please click the "Switch to Register" button.
-            </p>
+            switch (loginState)
+            {
+                case LoginFrontEndType.Login:
 
-            <EditForm class="form" Model="@LoginModel" OnValidSubmit="SubmitLogin">
-                <DataAnnotationsValidator />
-                @* <ValidationSummary /> *@
+                    <p>
+                        If you already have an account on Forbidden Knowledge, please enter your pseudonym and password below to login.
+                        If you do not have an account and would like to make one, please click the "Switch to Register" button.
+                        If you have forgotten your password or pseudonym, please use the "Reset Password" button.
+                    </p>
 
-                <div class="form-item">
-                    <label class="label" for="Pseudonym">Pseudonym:</label>
-                    <InputText class="form-input" id="Pseudonym" @bind-Value="LoginModel.Pseudonym" />
-                </div>
-                <ValidationMessage For="@(() => LoginModel.Pseudonym)" />
+                    <EditForm class="form" Model="@loginModel" OnValidSubmit="SubmitLogin">
+                        <DataAnnotationsValidator />
+                        @* <ValidationSummary /> *@
 
-                <div class="form-item">
-                    <label class="label" for="password">Password:</label>
-                    <PasswordInput Value="@LoginModel.Password" ValueChanged="@((value) => LoginModel.Password = value)" />
-                </div>
-                <ValidationMessage For="@(() => LoginModel.Password)" />
+                        <div class="form-item">
+                            <label class="label" for="Pseudonym">Pseudonym:</label>
+                            <InputText class="form-input" id="Pseudonym" @bind-Value="loginModel.Pseudonym" />
+                        </div>
+                        <ValidationMessage For="@(() => loginModel.Pseudonym)" />
 
-                @if (!string.IsNullOrEmpty(errorMessage))
-                {
-                    <div class="alert alert-danger">@errorMessage</div>
-                }
-                <button class="blue-button register-login-switch-button" type="submit">Login</button>
-            </EditForm>
+                        <div class="form-item">
+                            <label class="label" for="password">Password:</label>
+                            <PasswordInput Value="@loginModel.Password" ValueChanged="@((value) => loginModel.Password = value)" />
+                        </div>
+                        <ValidationMessage For="@(() => loginModel.Password)" />
+
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger">@errorMessage</div>
+                        }
+
+                        <div class="flex-container-row">
+                            <button class="blue-button auth-modal-buttons" @onclick="SwitchToPasswordResetRequestFrontend">Reset Password</button>
+                            <button class="blue-button auth-modal-buttons" type="submit">Login</button>
+                        </div>
+
+                    </EditForm>
+
+                    break;
+
+                case LoginFrontEndType.PasswordResetRequest:
+
+                    <p>
+                        To reset your password, you must provide either the pseudonym or email address associated with your account.
+                        Pseudonym is preffered, but if you have forgotten your pseudonym, your account can still be retrieved by providing the email address associated with your account.
+                        An email will then by sent to you with a password reset code. This email will include your pseudonym in case you forgot it.
+                    </p>
+
+                    <EditForm class="form" Model="@passwordResetRequestModel" OnValidSubmit="RequestPasswordReset">
+                        <DataAnnotationsValidator />
+                        @* <ValidationSummary /> *@
+
+                        <div class="form-item">
+                            <label class="label-large" for="PseudonymOrEmail">Pseudonym/Email Address:</label>
+                            <InputText class="form-input" id="PseudonymOrEmail" @bind-Value="passwordResetRequestModel.PseudonymOrEmail" />
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger">@errorMessage</div>
+                        }
+                        <button class="blue-button auth-modal-buttons " type="submit">Send Password Reset Email</button>
+                    </EditForm>
+
+                    break;
+
+                case LoginFrontEndType.PasswordReset:
+
+                    <EditForm class="form" Model="@passwordResetModel" OnValidSubmit="PasswordReset">
+                        <DataAnnotationsValidator />
+
+                        <div class="form-item">
+                            <label class="label-medium" for="Pseudonym">Pseudonym:</label>
+                            <InputText class="form-input" id="Pseudonym" @bind-Value="passwordResetModel.Pseudonym" />
+                        </div>
+                        <ValidationMessage For="@(() => passwordResetModel.Pseudonym)" />
+
+                        <div class="form-item">
+                            <label class="label-medium" for="ResetCode">Reset Code:</label>
+                            <InputText class="form-input" id="ResetCode" @bind-Value="passwordResetModel.ResetCode" />
+                        </div>
+                        <ValidationMessage For="@(() => passwordResetModel.ResetCode)" />
+
+                        <div class="form-item">
+                            <label class="label-medium" for="password">New Password:</label>
+                            <PasswordInput Value="@passwordResetModel.Password" ValueChanged="@((value) => passwordResetModel.Password = value)" />
+                        </div>
+                        <ValidationMessage For="@(() => passwordResetModel.Password)" />
+
+                        <button class="blue-button auth-modal-buttons" type="submit">Reset Password</button>
+
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger">@errorMessage</div>
+                        }
+                    </EditForm>
+
+                    break;
+            }
         }
         else
         {
@@ -48,29 +120,29 @@
                 We highly reccomend using a dedicated password manager such as <a href="https://www.keepersecurity.com" target="_blank">Keeper</a> or <a href="https://1password.com" target="_blank">1Password</a> to generate secure passwords and manage various accounts.
             </p>
 
-            <EditForm class="form" Model="@RegisterModel" OnValidSubmit="SubmitRegistration">
+            <EditForm class="form" Model="@registerModel" OnValidSubmit="SubmitRegistration">
                 <DataAnnotationsValidator />
                 @* <ValidationSummary /> *@
 
                 <div class="form-item">
                     <label class="label" for="Pseudonym">Pseudonym:</label>
-                    <InputText class="form-input" id="Pseudonym" @bind-Value="RegisterModel.Pseudonym" />
+                    <InputText class="form-input" id="Pseudonym" @bind-Value="registerModel.Pseudonym" />
                 </div>
-                <ValidationMessage For="@(() => RegisterModel.Pseudonym)" />
+                <ValidationMessage For="@(() => registerModel.Pseudonym)" />
 
                 <div class="form-item">
                     <label class="label" for="Email">Email:</label>
-                    <InputText class="form-input" id="Email" @bind-Value="RegisterModel.Email" />
+                    <InputText class="form-input" id="Email" @bind-Value="registerModel.Email" />
                 </div>
-                <ValidationMessage For="@(() => RegisterModel.Email)" />
+                <ValidationMessage For="@(() => registerModel.Email)" />
 
                 <div class="form-item">
                     <label class="label" for="password">Password:</label>
-                    <PasswordInput Value="@RegisterModel.Password" ValueChanged="@((value) => RegisterModel.Password = value)" />
+                    <PasswordInput Value="@registerModel.Password" ValueChanged="@((value) => registerModel.Password = value)" />
                 </div>
-                <ValidationMessage For="@(() => RegisterModel.Password)" />
+                <ValidationMessage For="@(() => registerModel.Password)" />
 
-                <button class="blue-button register-login-switch-button" type="submit">Register</button>
+                <button class="blue-button auth-modal-buttons" type="submit">Register</button>
 
                 @if (!string.IsNullOrEmpty(errorMessage))
                 {
@@ -79,7 +151,7 @@
             </EditForm>
         }
 
-        <button class="blue-button register-login-switch-button" @onclick="ToggleMode">@((IsLoginMode ? "Switch to Register" : "Switch to Login"))</button>
+        <button class="blue-button auth-modal-buttons login-register-switch-button" @onclick="ToggleMode">@((IsLoginMode ? "Switch to Register" : "Switch to Login"))</button>
     </div>
 </div>
 
@@ -92,22 +164,25 @@
     public EventCallback<bool> ShowModalChanged { get; set; }
 
     private bool IsLoginMode = true;
+    private LoginFrontEndType loginState = LoginFrontEndType.Login; 
 
-    private LoginModel LoginModel = new();
-    private RegisterModel RegisterModel = new();
+    private LoginModel loginModel = new();
+    private RegisterModel registerModel = new();
+    private PasswordResetRequestModel passwordResetRequestModel = new();
+    private PasswordResetModel passwordResetModel = new();
 
     public string errorMessage { get; set; }
 
     private async Task SubmitLogin()
     {
-        var(succeeded, error) = await _authService.LoginFullAccountAsync(LoginModel);
+        var(succeeded, error) = await _authService.LoginFullAccountAsync(loginModel);
         if (succeeded)
         {
             // Notify parent to close popup
             await ShowModalChanged.InvokeAsync(false);
 
             //clear input fields
-            LoginModel = new LoginModel();
+            loginModel = new LoginModel();
         }
         else
         {
@@ -117,14 +192,14 @@
 
     private async Task SubmitRegistration()
     {
-        var(succeeded, error) = await _authService.CreateFullAccount(RegisterModel);
+        var(succeeded, error) = await _authService.CreateFullAccount(registerModel);
         if (succeeded)
         {
             // Notify parent to close popup
             await ShowModalChanged.InvokeAsync(false);
 
             //clear input fields
-            RegisterModel = new RegisterModel();
+            registerModel = new RegisterModel();
         }
         else
         {
@@ -150,6 +225,48 @@
         errorMessage = message;
         StateHasChanged();
     }
+
+    private async Task SwitchToPasswordResetRequestFrontend()
+    {
+        loginState = LoginFrontEndType.PasswordResetRequest;
+    }
+
+    private async Task RequestPasswordReset()
+    {
+        var (succeeded, error) = await _authService.RequestPasswordResetAsync(passwordResetRequestModel);
+        if (succeeded)
+        {
+            //this means a password reset email was sent, so we need to switch the frontend tp
+            loginState = LoginFrontEndType.PasswordReset;
+
+            //clear input fields
+            passwordResetRequestModel = new PasswordResetRequestModel();
+        }
+        else
+        {
+            errorMessage = error;
+        }
+    }  
+
+    private async Task PasswordReset()
+    {
+        var (succeeded, error) = await _authService.PasswordResetAsync(passwordResetModel);
+        if (succeeded)
+        {
+            //PW reset was successful. User must now log back in themselves, since security stamp was reset.
+            loginState = LoginFrontEndType.Login;
+
+            //clear input fields
+            passwordResetModel = new PasswordResetModel();
+        }
+        else
+        {
+            errorMessage = error;
+        }
+
+    }
+
+
 }
 
 

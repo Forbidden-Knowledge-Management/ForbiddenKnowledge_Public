@@ -16,7 +16,9 @@ namespace ForbiddenKnowledge.Services
 
         Task<(bool Succeeeded, string? Error)> CreateFullAccount(RegisterModel registerModel);
 
+        Task<(bool Succeeded, string? Error)> RequestPasswordResetAsync(PasswordResetRequestModel passwordResetRequestModel);
 
+        Task<(bool Succeeded, string? Error)> PasswordResetAsync(PasswordResetModel passwordResetModel);
 
     }
 }

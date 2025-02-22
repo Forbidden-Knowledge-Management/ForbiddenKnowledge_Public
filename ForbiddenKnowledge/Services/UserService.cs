@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.JSInterop;
+using Microsoft.AspNetCore.Components;
 using System.Reflection;
 using System.Net;
 
@@ -9,6 +10,7 @@ using DnsClientX;
 
 using ForbiddenKnowledge.Data.DbModels;
 using ForbiddenKnowledge.Data;
+
 
 
 
@@ -22,8 +24,10 @@ namespace ForbiddenKnowledge.Services
         private readonly AuditDbContext _auditDbContext;
         private readonly ILogger _logger;
         private readonly IJSRuntime _jSRuntime;
+        private readonly IEmailService _emailService;
+        private readonly NavigationManager _navigationManager;
 
-        public UserService(UserManager<User> userManager, SignInManager<User> signInManager, ForbiddenKnowledgeContext forbiddenKnowledgeContext, AuditDbContext auditDbContext, ILogger<UserService> logger, IJSRuntime jSRuntime)
+        public UserService(UserManager<User> userManager, SignInManager<User> signInManager, ForbiddenKnowledgeContext forbiddenKnowledgeContext, AuditDbContext auditDbContext, ILogger<UserService> logger, IJSRuntime jSRuntime, IEmailService emailService, NavigationManager navigationManager)
         {
             _userManager = userManager;
             _signInManager = signInManager;
@@ -31,6 +35,8 @@ namespace ForbiddenKnowledge.Services
             _auditDbContext = auditDbContext;
             _logger = logger;
             _jSRuntime = jSRuntime;
+            _emailService = emailService;
+            _navigationManager = navigationManager;
         }
 
         /// <summary>
@@ -117,6 +123,128 @@ namespace ForbiddenKnowledge.Services
         public async Task LogoutUserAsync()
         {
             await _signInManager.SignOutAsync();
+        }
+
+        public async Task<(bool Succeeded, string? Error)> RequestPasswordResetAsync(string pseudonymOrEmail)
+        {
+            User user;
+            user = await _userManager.FindByNameAsync(pseudonymOrEmail);
+            if (user == null || user == default)
+            {
+                user = await _userManager.FindByEmailAsync(pseudonymOrEmail);
+                if (user == null || user == default)
+                {
+                    // Don't reveal if the user exists
+                    _logger.LogWarning($"{MethodBase.GetCurrentMethod().Name}: Password reset requested for non-existent account: {pseudonymOrEmail}");
+                    return (true, "If an account exists with that email, a reset code has been sent.");
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(user.Email))
+            {
+                _logger.LogWarning($"{MethodBase.GetCurrentMethod().Name}: Password reset requested for existing account \"{pseudonymOrEmail}\" that does not have an email address. This should not be possible.");
+                return (true, "If an account exists with that email, a reset code has been sent.");
+            }
+
+            // Generate PW reset code via .NET Identity
+            string resetCode = await _userManager.GeneratePasswordResetTokenAsync(user);
+
+            // Send the reset code via email
+            var baseUrl = _navigationManager.BaseUri.TrimEnd('/');
+            var emailBody = $@"
+                <html>
+                <head>
+                    <style>
+                        body {{
+                            font-family: Arial, sans-serif;
+                            line-height: 1.6;
+                            color: #333;
+                        }}
+                        .container {{
+                            max-width: 800px;
+                            margin: 0 auto;
+                            padding: 20px;
+                            border: 1px solid #ddd;
+                            border-radius: 8px;
+                            background-color: #f9f9f9;
+                        }}
+                        .header {{
+                            text-align: center;
+                            padding-bottom: 20px;
+                        }}
+                        .content {{
+                            font-size: 16px;
+                            margin-bottom: 20px;
+                        }}
+                        .footer {{
+                            font-size: 14px;
+                            text-align: start;
+                            color: #555;
+                        }}
+                        .reset-code {{
+                            display: inline-block;
+                            max-width: 100%;
+                            overflow-wrap: break-word;
+                            text-align: center;
+                            background: #eee;
+                            padding: 10px;
+                            border-radius: 5px;
+                        }}
+                    </style>
+                </head>
+                <body>
+                    <div class='container'>
+                        <div class='header'>
+                            <img src='{baseUrl}/favicon.png' alt='Forbidden Knowledge Logo' width='150'>
+                        </div>
+                        <div class='content'>
+                            <p>Dear {user.OriginalPseudonym},</p>
+
+                            <p>You recently requested a password reset for your **Forbidden Knowledge** account.</p>
+
+                            <p><strong>Your password reset code:</strong></p>
+                            <h2 class='reset-code'>
+                                {resetCode}
+                            </h2>
+
+                            <p>This code will expire in <strong>10 minutes</strong>. If you did not request this reset, please ignore this email.</p>
+
+                            <p>For security reasons, do not share this code with anyone.</p>
+                        </div>
+
+                        <div class='footer'>
+                            <p>Thank you,<br>
+                            <strong>Forbidden Knowledge Administrator</strong><br>
+                            <a href='{baseUrl}'>Forbidden Knowledge</a></p>
+                        </div>
+                    </div>
+                </body>
+                </html>";
+
+            await _emailService.SendEmailAsync(user.Email, "Password Reset Code from Forbidden Knowledge", emailBody);
+            return (true, "If an account exists with that email, a reset code has been sent.");
+        }
+
+        public async Task<(bool Succeeded, IEnumerable<IdentityError> Errors)> ResetPasswordAsync(string pseudonym, string resetCode, string newPassword)
+        {
+            List<IdentityError> errors = new List<IdentityError>();
+            User user = await _userManager.FindByNameAsync(pseudonym);
+            if (user == null || user == default)
+            {
+                errors.Add(new IdentityError() { Code = "User not found.", Description = "The user could not be retrieved with the given pseudonym." });
+                return (false, errors);
+            }
+
+            IdentityResult result = await _userManager.ResetPasswordAsync(user, resetCode, newPassword);
+            if (!result.Succeeded)
+            {
+                return (false, result.Errors);
+            }
+
+            // Update security stamp to invalidate old tokens
+            await _userManager.UpdateSecurityStampAsync(user);
+
+            return (true, result.Errors);
         }
 
         public async Task<bool> IsRateLimitedForLightweightAccounts(string ipAddress)
