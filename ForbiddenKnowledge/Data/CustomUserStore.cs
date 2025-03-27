@@ -46,16 +46,6 @@ namespace ForbiddenKnowledge.Data
                         .FirstOrDefaultAsync(u => u.UppercasedPseudonym == name.ToUpper(), cancellationToken);
         }
 
-        public async Task<User?> FindByEmailAsync(string email, CancellationToken cancellationToken)
-        {
-            //Use a NEW DbContext instance to avoid concurrency issues
-            using ForbiddenKnowledgeContext forbiddenKnowledgeContext = CreateDbContext();
-
-            return await forbiddenKnowledgeContext.Users
-                        .AsNoTracking()
-                        .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
-        }
-
         public Task<string> GetUserIdAsync(User user, CancellationToken cancellationToken)
         {
             return Task.FromResult(user.Id.ToString());
@@ -76,7 +66,7 @@ namespace ForbiddenKnowledge.Data
             user.OriginalPseudonym = userName;
             return Task.CompletedTask;
         }
-
+        
         public Task SetNormalizedUserNameAsync(User user, string normalizedName, CancellationToken cancellationToken)
         {
             user.UppercasedPseudonym = normalizedName;
@@ -87,16 +77,15 @@ namespace ForbiddenKnowledge.Data
         {
             try
             {
-                //Weird situation here.
-                //When  is called to create full accounts, .NET Identity will already execute an INSERT command against the DB before this method even runs.
-                //so, if we attempt to add the new user to the DB ourselves via EF, we will get a PK violation because it is a duplicate.
-                //However, the when _userManager.CreateAsync(user) is called (no password) for lightweight accounts, .NET Identity does NOT make the DB record automatically.
-                //So we need to deal with that ourselves
-                if (user.Email == null && user.PasswordHash == null && user.UppercasedPseudonym.StartsWith("ANONYMOUSUSER"))
-                {
-                    //Use a NEW DbContext instance to avoid concurrency issues
-                    using ForbiddenKnowledgeContext forbiddenKnowledgeContext = CreateDbContext();
+                //Use a NEW DbContext instance to avoid concurrency issues
+                using ForbiddenKnowledgeContext forbiddenKnowledgeContext = CreateDbContext();
 
+                //I've seen some weird behavior here from .NET Identity.
+                //Sometimes .NET Identity adds a DB record for the new user itself before the code in this method executes.
+                //Because it isn't reliable, we do a safety check, and then add the record ourselves if needed.
+
+                if (forbiddenKnowledgeContext.Users.Any(u => u.UppercasedPseudonym == user.UppercasedPseudonym) == false)
+                {
                     forbiddenKnowledgeContext.Users.Add(user);
                     await forbiddenKnowledgeContext.SaveChangesAsync(cancellationToken);
                     return IdentityResult.Success;

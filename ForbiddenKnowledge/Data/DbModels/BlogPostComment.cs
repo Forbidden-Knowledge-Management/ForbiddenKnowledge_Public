@@ -18,10 +18,11 @@ namespace ForbiddenKnowledge.Data.DbModels
 
         [Required]
         [ForeignKey("User")]
-        [Column("pseudonym")]
-        public required string Pseudonym { get; set; }
+        [Column("user_id")]
+        public int UserId { get; set; }
         public User User { get; set; } = null!;
 
+        //for possible future use
         [Column("parent_comment_id")]
         public int ParentCommentId { get; set; }
 

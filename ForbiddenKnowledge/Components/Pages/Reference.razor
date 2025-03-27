@@ -1,0 +1,76 @@
+﻿@page "/reference"
+@rendermode InteractiveServer
+@using ForbiddenKnowledge.Services
+@inject IBlogPostService _blogPostService
+@inject IJSRuntime _jsRuntime
+@inject IUserService _userService
+
+
+<h3>Reference Documents</h3>
+
+<p>
+    For your convenience, this page contains documents that may be referred to in blog posts,
+    or simply documents of interest to Forbidden Knowledge readers.
+    All documents below can be downloaded by clicking on the title.
+</p>
+
+
+<div class="list-group orders-list">
+    @foreach (Data.DbModels.ReferenceDocument refDoc in referenceDocuments)
+    {
+        <div class="blog-post-item">
+            <!-- Left Side: Image -->
+            <img src="/img/pdf-file-icon.png" alt="basic image of a PDF" class="blog-post-image" />
+
+            <!-- Right Side: Content -->
+            <div class="content">
+                <!-- Title -->
+                <h3 class="blog-post-title">
+                    <a href="@($"/reference_docs/{refDoc.FileName}")" download>
+                        @refDoc.Title
+                    </a>
+                </h3>
+
+                <!-- Author and Published Time -->
+                <p class="blog-post-meta">
+                    <span class="fade-in @(usersTimeZone != null ? "loaded" : "")">Uploaded at @_userService.ConvertDateTimeToUsersTimeZone(refDoc.UploadedAt, usersTimeZone).ToString("MMMM dd, yyyy")</span>
+                    <span> | File Size: @refDoc.FileSizeDisplay</span>
+                </p>
+
+                <!-- Excerpt or Description -->
+                <p class="blog-post-excerpt">
+                    @refDoc.Description
+                </p> 
+            </div>
+        </div>
+    }
+</div>
+
+
+
+
+@code {
+    List<Data.DbModels.ReferenceDocument> referenceDocuments = new List<Data.DbModels.ReferenceDocument>();
+
+    private string? usersTimeZone = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        referenceDocuments = await _blogPostService.GetReferenceDocuments();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            usersTimeZone = await _jsRuntime.InvokeAsync<string>("getUserTimeZone");
+            if (usersTimeZone == null)
+            {
+                usersTimeZone = "UTC";
+            }
+            StateHasChanged(); // Re-render with updated time zone
+        }
+    }
+
+}

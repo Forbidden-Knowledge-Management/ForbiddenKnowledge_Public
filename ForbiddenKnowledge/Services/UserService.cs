@@ -12,6 +12,7 @@ using ForbiddenKnowledge.Data.DbModels;
 using ForbiddenKnowledge.Data;
 using Org.BouncyCastle.Pqc.Crypto.Lms;
 using static System.Runtime.InteropServices.JavaScript.JSType;
+using System.Threading;
 
 
 
@@ -39,6 +40,11 @@ namespace ForbiddenKnowledge.Services
             _jSRuntime = jSRuntime;
             _emailService = emailService;
             _navigationManager = navigationManager;
+        }
+
+        public async Task<User?> GetUserById(string userId)
+        {
+            return await _userManager.FindByIdAsync(userId);
         }
 
         /// <summary>
@@ -131,7 +137,7 @@ namespace ForbiddenKnowledge.Services
             user = await _userManager.FindByNameAsync(pseudonymOrEmail);
             if (user == null || user == default)
             {
-                user = await _userManager.FindByEmailAsync(pseudonymOrEmail);
+                user = await _forbiddenKnowledgeContext.Users.FirstOrDefaultAsync(u => u.Email == pseudonymOrEmail);
                 if (user == null || user == default)
                 {
                     // Don't reveal if the user exists
@@ -257,6 +263,28 @@ namespace ForbiddenKnowledge.Services
                                         a.IpAddress == ipAddress);
 
             return recentAttempts >= 3; // Limit to 3 per hour
+        }
+
+        /// <summary>
+        /// the provided DateTime is in UTC. This method converts it to the user's local time zone.
+        /// </summary>
+        /// <param name="dateTime"></param>
+        /// <param name="timeZoneId"></param>
+        /// <returns></returns>
+        public DateTime ConvertDateTimeToUsersTimeZone(DateTime dateTime, string timeZoneId)
+        {
+            try
+            {
+                TimeZoneInfo timeZone = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+                DateTime dateTimeInUsersZone = TimeZoneInfo.ConvertTimeFromUtc(dateTime, timeZone);
+                return dateTimeInUsersZone;
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"{MethodBase.GetCurrentMethod().Name}: Unexpected error occurred while converting date time to user time zone. Exception: {ex}");
+                return dateTime;
+            }
         }
 
         //Pseudonyms are case-insensitive. That is maintained elsewhere. This is for more specific, custom stuff.

@@ -18,8 +18,7 @@ namespace ForbiddenKnowledge.Services
     /// </summary>
     public class AuthService : IAuthService
     {
-        public string? Pseudonym { get; private set; }
-        public bool IsLightweightUser { get; private set; }
+        public User appUser { get; set; }
 
         private readonly ILogger _logger; 
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -41,19 +40,25 @@ namespace ForbiddenKnowledge.Services
         {
             AuthenticationState authState = await _authStateProvider.GetAuthenticationStateAsync();
             ClaimsPrincipal user = authState.User;
-
             if (user.Identity?.IsAuthenticated == true)
             {
-                Pseudonym = user.FindFirst(ClaimTypes.Name)?.Value ?? "Unknown";
-                IsLightweightUser = user.HasClaim(c => c.Type == "AccountType" && c.Value == "Lightweight");
-                _logger.LogInformation($"User {Pseudonym} has been authenticated.");
+                string userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                User? dbUser = await _userService.GetUserById(userId);
+                if (dbUser == null || dbUser == default)
+                {
+                    _logger.LogWarning($"{MethodBase.GetCurrentMethod().Name}: Authenticated user ID {userId} does not exist in the database. Logging out.");
+                    await _userService.LogoutUserAsync(); // Force logout
+                    appUser = null;
+                    return false;
+                }
+                appUser = dbUser;
+                _logger.LogInformation($"{MethodBase.GetCurrentMethod().Name}: User {appUser.OriginalPseudonym} (ID: {appUser.Id}) is authenticated.");
                 return (true);
             }
             else
             {
-                Pseudonym = null;
-                IsLightweightUser = false;
-                _logger.LogInformation($"User {Pseudonym} failed authentication.");
+                appUser = null;
+                _logger.LogInformation($"{MethodBase.GetCurrentMethod().Name}: User failed authentication.");
                 return (false);
             }
         }

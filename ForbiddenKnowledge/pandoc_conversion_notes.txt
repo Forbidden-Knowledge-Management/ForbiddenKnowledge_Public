@@ -1,0 +1,25 @@
+This is all done on Titian. 
+
+First, save tex file to /erasmus_storage/bulk/deployments/forbiddenknowledge/blogposts/
+(S:/bulk/deployments/forbiddenknowledge/blogposts/)
+
+on Titian:
+
+ cd /erasmus_storage/bulk/deployments/forbiddenknowledge/blogposts/
+ 
+ 
+ pandoc -f latex -t html5 --wrap=none -o smallpox-and-vaccination-2024-11-13_NEW.html smallpox-and-vaccination-2024-11-13.tex
+ 
+ add this to run lua filter: --lua-filter=footnote-filter.lua
+ 
+
+Modify footnote links to have JS onclick:
+
+
+# Ensure ALL footnotes (including adjacent ones) get onclick
+sed -i 's/<a href="#fn\([0-9]\+\)"/<a href="#fn\1" onclick="scrollToElement('\''fn\1'\''); return false;"/g' smallpox-and-vaccination-2024-11-13.html
+sed -i 's/<a href="#fnref\([0-9]\+\)"/<a href="#fnref\1" onclick="scrollToElement('\''fnref\1'\''); return false;"/g' smallpox-and-vaccination-2024-11-13.html
+
+# Ensure no footnote is skipped when they are next to each other
+sed -i 's/\(<a href="#fn[0-9]\+.*<\/a>\)\(<sup>,<\/sup>\)\(<a href="#fn[0-9]\+.*<\/a>\)/\1\2 \3/g' smallpox-and-vaccination-2024-11-13.html
+

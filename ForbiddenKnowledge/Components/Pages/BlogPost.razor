@@ -7,159 +7,140 @@
 @inject IAuthService _authService
 @inject NavigationManager _navigationManager
 @inject IBlogPostService _blogPostService
+@inject IUserService _userService
 @inject IJSRuntime _jsRuntime
+@inject IConfiguration _configuration
 
 
-<div>
-    @if (isLoading)
-    {
-        <p>Loading...</p>
-    }
-    else if (!string.IsNullOrEmpty(blogPost.PostContent))
-    {
-        <div>
 
-            @* breadcrumb with categories that are links *@
-            <nav class="breadcrumb">
-                <a href="@($"/blogposts/category/{blogPost.CategoryId}")" class="breadcrumb-item">@blogPost.Category.Name</a>               
-            </nav>
+@if (isLoading)
+{
+    <p>Loading...</p>
+}
+else if (!string.IsNullOrEmpty(blogPost.PostContent))
+{
+    <div>
 
-            <h3>@blogPost.Title</h3>
+        @* breadcrumb with categories that are links *@
+        <nav class="breadcrumb">
+            <a href="@($"/blogposts/category/{blogPost.CategoryId}")" class="breadcrumb-item">@blogPost.Category.Name</a>               
+        </nav>
 
-            <!-- Tags and Author Info -->
-            <div class="post-meta">
-                <span class="tags">
-                    @foreach (BlogPostTag tag in blogPost.BlogPostTags)
-                    {
-                        <span class="tag">@tag.BlogPostTagLookup.Name</span>
-                    }
-                </span>
-                <span class="author-info">
-                    by: <span class="scroll-to-author" onclick="document.getElementById('author-bio').scrollIntoView({ behavior: 'smooth' })">@blogPost.Author.Name</span> | Published @blogPost.PublishedDateTime.ToString("MMMM dd, yyyy")
-                </span>
-            </div>
+        <h3>@blogPost.Title</h3>
 
-            <!-- Link for sharing and Comments Section -->
-            <div class="share-and-comments">
-                <span class="share-links">
-                    <a href="@($"https://twitter.com/share?url={_navigationManager.BaseUri}blogposts/{BlogPostId}")" target="_blank">Share on X</a> |
-                    <a href="@($"https://www.facebook.com/sharer.php?u={_navigationManager.BaseUri}blogposts/{BlogPostId}")" target="_blank">Share on Facebook</a> |
-                    <a href="@($"https://www.instagram.com/")" target="_blank">Share on Instagram</a> |
-                    <a href="@($"https://substack.com/recommend?url={_navigationManager.BaseUri}blogposts/{BlogPostId}")" target="_blank">Share on Substack</a> |
-                    <button class="blue-button copy-link-button" @onclick="CopyLinkToClipboard">Copy Link</button>
-                </span>
-
-                @if (showCopiedMessage)
+        <!-- Tags and Author Info -->
+        <div class="post-meta">
+            <span class="tags">
+                Tags: 
+                @foreach (BlogPostTag tag in blogPost.BlogPostTags)
                 {
-                    <span class="copied-message">✔ Link copied!</span>
+                    <span class="tag">@tag.BlogPostTagLookup.Name</span>
                 }
+            </span>
+            <span class="author-info">
+                By: <span class="scroll-to-author" onclick="document.getElementById('author-bio').scrollIntoView({ behavior: 'smooth' })">@blogPost.Author.Name</span>
 
-                <span class="comments-link">
-                    | <button class="blue-button" @onclick="() => ScrollToComments()" @onclick:preventDefault>Scroll to Comments</button>
+                <span class="fade-in @(usersTimeZone != null ? "loaded" : "")">
+                    | Published @_userService.ConvertDateTimeToUsersTimeZone(blogPost.PublishedDateTime, usersTimeZone).ToString("MMMM dd, yyyy")
                 </span>
+
+                <span> | This post has been viewed @blogPostViewCount times</span>
+                @* @if (blogPostViewCount > 1000)
+                {
+                    <span> | This post has been viewed @blogPostViewCount times</span>
+                } *@
+            </span>
+        </div>
+
+        <!-- Link for sharing and Comments Section -->
+        <div class="share-and-comments">
+            <span class="share-links">
+                <a href="@($"https://twitter.com/share?url={_navigationManager.BaseUri}blogposts/{BlogPostId}")" target="_blank">Share on X</a> |
+                <a href="@($"https://www.facebook.com/sharer.php?u={_navigationManager.BaseUri}blogposts/{BlogPostId}")" target="_blank">Share on Facebook</a> |
+                <a href="@($"https://www.instagram.com/")" target="_blank">Share on Instagram</a> |
+                <a href="@($"https://substack.com/recommend?url={_navigationManager.BaseUri}blogposts/{BlogPostId}")" target="_blank">Share on Substack</a> |
+                <button class="blue-button copy-link-button" @onclick="CopyLinkToClipboard">Copy Link</button>
+            </span>
+
+            @if (showCopiedMessage)
+            {
+                <span class="copied-message">✔ Link copied!</span>
+            }
+
+            <span class="comments-link">
+                | <button class="blue-button" @onclick="() => ScrollToComments()" @onclick:preventDefault>Scroll to Comments</button>
+            </span>
+        </div>
+
+        <div class="blog-content" @key="BlogPostId">
+            @((MarkupString)blogPost.PostContent)
+        </div>
+
+        <!-- link to references page (if applicable) -->
+        @if (blogPostHasReferences)
+        {
+            <a href="@($"blogposts/{blogPost.Id}/references")" target="_blank" class="blog-post-link">
+                References
+            </a>
+        }
+
+        <hr class="divider" />
+
+        <!-- Author Bio Section -->
+        <div id="author-bio" class="author-bio">
+            <div class="author-bio-header">
+                <img src="@blogPost.Author.ImagePath" alt="@blogPost.Author.Name" class="author-image" />
+                <div class="author-details">
+                    <p><strong>@blogPost.Author.Name</strong></p>
+                    <p><a href="mailto:@blogPost.Author.Email">@blogPost.Author.Email.ToLowerInvariant()</a></p>
+                </div>
             </div>
 
-            <div class="blog-content" @key="BlogPostId">
-                @((MarkupString)blogPost.PostContent)
+            <div class="author-bio-text">
+                <p class="no-bottom-margin">@blogPost.Author.Biography</p>
             </div>
+        </div>
 
-            <hr class="divider" />
+        <hr class="divider" />
 
-            <!-- Author Bio Section -->
-            <div id="author-bio" class="author-bio">
-                <div class="author-bio-header">
-                    <img src="@blogPost.Author.ImagePath" alt="@blogPost.Author.Name" class="author-image" />
-                    <div class="author-details">
-                        <p><strong>@blogPost.Author.Name</strong></p>
-                        <p><a href="mailto:@blogPost.Author.Email">@blogPost.Author.Email.ToLowerInvariant()</a></p>
+        @* comments section here *@
+        <div id="comments" class="comments-section">
+
+            <h4 class="comments-title">Comments</h4>
+            @* Render existing comments *@
+            @foreach (BlogPostComment comment in blogPost.BlogPostComments)
+            {
+                <div class="comment">
+                    <div class="comment-header">
+                        <div>
+                            <span>@comment.User.OriginalPseudonym</span>
+                            @if (comment.User.IsContributor)
+                            {
+                                <span class="contributor-flag">  [FK Contributor]</span>
+                            }
+                        </div>
+                            
+                        @if (usersTimeZone != null)
+                        {
+                            <span>@_userService.ConvertDateTimeToUsersTimeZone(comment.CreatedAt, usersTimeZone).ToString("MMM dd, yyyy hh:mm tt")</span>   
+                        }
+                    </div>
+                    <div class="comment-content">
+                        <p>@(new MarkupString(System.Net.WebUtility.HtmlEncode(comment.Content)))</p>   @* Prevents stored XSS attacks that may be in comments*@
                     </div>
                 </div>
+            }
 
-                <div class="author-bio-text">
-                    <p class="no-bottom-margin">@blogPost.Author.Biography</p>
-                </div>
-            </div>
+            <hr class="divider"/>
 
-            <hr class="divider" />
+            @* Form to submit a new comment *@
+            <div class="new-comment-form">
+                <h5 class="comments-title">Add a Comment</h5>
 
-            @* comments section here *@
-            <div id="comments" class="comments-section">
-
-                <h4 class="comment-header">Comments</h4>
-                @* Render existing comments *@
-                @foreach (var comment in blogPost.BlogPostComments)
-                {
-                    <div class="comment">
-                        <div class="comment-header">
-                            @comment.Pseudonym @comment.CreatedAt.ToString("MMMM dd, yyyy hh:mm tt")
-                        </div>
-                        <div class="comment-content">
-                            <p>@(new MarkupString(System.Net.WebUtility.HtmlEncode(comment.Content)))</p>   @* Prevents stored XSS attacks that may be in comments*@
-                        </div>
-                    </div>
-                }
-
-                <hr class="divider" />
-
-                @* Form to submit a new comment *@
-                <div class="new-comment-form">
-                    <h5>Add a Comment</h5>
-
-                    <Microsoft.AspNetCore.Components.Authorization.AuthorizeView>
-                        <Authorized>
-                            @if (context.User.HasClaim("AccountType", "Lightweight") && !useLighweightAccountToComment)
-                            {
-                                <p>
-                                    In order to encourage discussion, comments may be made anonymously without creating an account.
-                                    However, due to the serious nature of the disscussions that take place on Forbidden Knowledge, all users who make comments require a unique pseudonym.
-                                    There are two reasons for this. First, it makes it possible to identify comments made by the same person. Second, it prevents users from impersonating each other.
-                                    We encourage users who plan on making more than one comment to first make an account.
-                                    However, if you choose to make a comment without making an account, the system will generate a generic pseudonym for you and save a cookie to your device so you can be recognized in the future.
-                                    If the cookie is deleted from your device, that identity will be lost, and if you make another comment the system will generate a new generic pseudonym for you.
-                                </p>
-
-                                <p>
-                                    Users who intend on making multiple comments are encouraged to create an account.
-                                    Creating an account allows you to select your own pseudonym and securely persist it without relying on cookies.
-                                    Account creation is simple and requires only a password and an email address.
-                                    The email address is strictly only used for password resets. We do not share user information with anyone.
-                                    We do not record the IP addresses used with a particular account.
-                                    We are not interested in knowing who users are in real life.
-                                    User accounts are only in place so that comments can be identifiable.
-                                </p>
-
-                                <p>
-                                    If you decide to make an account after making comments with a generic, system-provided pseudonym, your existing comments will automatically update to appear with your new pseudonym.
-                                </p>
-
-                                <span>You are not logged in. Choose one of the options below to comment:</span>
-
-                                <div class="comment-buttons-container">
-                                    <button class="blue-button comment-button" @onclick="OpenAuthModal">Login to account or register a new account</button>
-
-                                    <button class="blue-button comment-button" type="button" @onclick="UseExistingLightweightAccount">Comment without an account using existing pseudonym (@_authService.Pseudonym)</button>
-                                </div>
-                            }
-                            else
-                            {
-                                <!-- Show the comment box if a full account OR if lightweight user confirmed -->
-
-                                <p>
-                                    Hi @_authService.Pseudonym. You are logged in and can comment below.
-                                </p>
-
-                                <div class="comment-input-container">
-                                    <textarea placeholder="Write your comment here..." class="comment-text" @bind="newCommentContent"></textarea>
-                                    <button class="blue-button submit-comment-button" @onclick="SubmitComment">Submit Comment</button>
-                                    @if (!string.IsNullOrEmpty(commentSubmissionErrorMessage))
-                                    {
-                                        <p class="error-message">@commentSubmissionErrorMessage</p>
-                                    }
-                                </div>
-                            }
-                        </Authorized>
-
-                        <NotAuthorized>
+                <Microsoft.AspNetCore.Components.Authorization.AuthorizeView>
+                    <Authorized>
+                        @if (_authService.appUser.IsLightweight() && !useLighweightAccountToComment)
+                        {
                             <p>
                                 In order to encourage discussion, comments may be made anonymously without creating an account.
                                 However, due to the serious nature of the disscussions that take place on Forbidden Knowledge, all users who make comments require a unique pseudonym.
@@ -188,28 +169,87 @@
                             <div class="comment-buttons-container">
                                 <button class="blue-button comment-button" @onclick="OpenAuthModal">Login to account or register a new account</button>
 
-                                <button class="blue-button comment-button" type="button" @onclick="CreateLightWeightAccount">Comment without an account</button>
-                                @if (!string.IsNullOrEmpty(createLightWeightAccountErrorMessage))
-                                {
-                                    <p class="error-message">@createLightWeightAccountErrorMessage</p>
-                                }
-
+                                <button class="blue-button comment-button" type="button" @onclick="UseExistingLightweightAccount">Comment without an account using existing pseudonym (@_authService.appUser.OriginalPseudonym)</button>
                             </div>
-                        </NotAuthorized>
-                    </Microsoft.AspNetCore.Components.Authorization.AuthorizeView>
-                </div>
+                        }
+                        else
+                        {
+                            <!-- Show the comment box if a full account OR if lightweight user confirmed -->
 
+                            <p>
+                                Hi @_authService.appUser.OriginalPseudonym. You are logged in and can comment below.
+                            </p>
+
+                            <p>
+                                If a genuine accident happens, you may request a comment be deleted by emailing the administrator at <a href="mailto:admin@forbidden-knowledge.com" target="_blank">admin@forbidden-knowledge.com</a>.
+                                Please note that, pursuant to the Forbidden Knowledge Terms of Use, we do not delete comments simply because people regret making them and want to "take back" what they said.
+                                We ask that you please do not email the administrator with frivolous comment deletion requests.
+                                Please refer to the Forbidden Knowledge Terms of Use, which can found in the footer of this page, for more information.
+                                By using this web application, you agree to the Terms of Use.
+                            </p>
+
+                            <div class="comment-input-container">
+                                <textarea placeholder="Write your comment here..." class="comment-text" @bind="newCommentContent" rows="5"></textarea>
+                                <button class="blue-button submit-comment-button" @onclick="SubmitComment">Submit Comment</button>
+                                @if (!string.IsNullOrEmpty(commentSubmissionErrorMessage))
+                                {
+                                    <p class="error-message">@commentSubmissionErrorMessage</p>
+                                }
+                            </div>
+                        }
+                    </Authorized>
+
+                    <NotAuthorized>
+                        <p>
+                            In order to encourage discussion, comments may be made anonymously without creating an account.
+                            However, due to the serious nature of the disscussions that take place on Forbidden Knowledge, all users who make comments require a unique pseudonym.
+                            There are two reasons for this. First, it makes it possible to identify comments made by the same person. Second, it prevents users from impersonating each other.
+                            We encourage users who plan on making more than one comment to first make an account.
+                            However, if you choose to make a comment without making an account, the system will generate a generic pseudonym for you and save a cookie to your device so you can be recognized in the future.
+                            If the cookie is deleted from your device, that identity will be lost, and if you make another comment the system will generate a new generic pseudonym for you.
+                        </p>
+
+                        <p>
+                            Users who intend on making multiple comments are encouraged to create an account.
+                            Creating an account allows you to select your own pseudonym and securely persist it without relying solely on cookies.
+                            Account creation is simple and requires only a password and an email address.
+                            The email address is strictly only used for password resets. We do not share user information with anyone.
+                            We do not record the IP addresses used with a particular account.
+                            We are not interested in knowing who users are in real life.
+                            User accounts are only in place so that comments can be identifiable.
+                        </p>
+
+                        <p>
+                            If you decide to make an account after making comments with a generic, system-provided pseudonym, your existing comments will automatically update to appear with your new pseudonym.
+                        </p>
+
+                        <span>You are not logged in. Choose one of the options below to comment:</span>
+
+                        <div class="comment-buttons-container">
+                            <button class="blue-button comment-button" @onclick="OpenAuthModal">Login to account or register a new account</button>
+
+                            <button class="blue-button comment-button" type="button" @onclick="CreateLightWeightAccount">Comment without an account</button>
+                            @if (!string.IsNullOrEmpty(createLightWeightAccountErrorMessage))
+                            {
+                                <p class="error-message">@createLightWeightAccountErrorMessage</p>
+                            }
+
+                        </div>
+                    </NotAuthorized>
+                </Microsoft.AspNetCore.Components.Authorization.AuthorizeView>
             </div>
 
-            <AuthModal ShowModal="@ShowAuthModal" ShowModalChanged="OnModalStateChanged" />
-
         </div>
-    }
-    else
-    {
-        <p>Post not found.</p>
-    }
-</div>
+
+        <AuthModal ShowModal="@ShowAuthModal" ShowModalChanged="OnModalStateChanged" />
+
+    </div>
+}
+else
+{
+    <p>Post not found.</p>
+}
+
 
 
 
@@ -233,6 +273,12 @@
 
     private string? createLightWeightAccountErrorMessage = null;
 
+    private string? usersTimeZone = null;
+
+    private bool blogPostHasReferences = false;
+
+    private int blogPostViewCount = 0;
+
     protected override async Task OnInitializedAsync()
     {
         try
@@ -244,10 +290,46 @@
             }
 
             await _authService.CheckAuthenticationStatusAsync();
+
+            string filePath;
+            //so our dev environment is windows, but our prod and test environments are linux
+            if (_configuration.GetValue<string>("EnvironmentName") == "Development")
+            {
+                filePath = _configuration.GetValue<string>("BlogPostReferencesFilePath") + "\\" + blogPost.Filename + ".html";
+            }
+            else
+            {
+                filePath = _configuration.GetValue<string>("BlogPostReferencesFilePath") + "/" + blogPost.Filename + ".html";
+            }
+
+            if (File.Exists(filePath))
+            {
+                blogPostHasReferences = true;
+            }
+
+            blogPostViewCount = await _blogPostService.GetBlogPostPageViews(BlogPostId);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error loading blog post");
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            if (_authService.appUser == null)
+            {
+                await _authService.CheckAuthenticationStatusAsync();
+            }
+
+            usersTimeZone = await _jsRuntime.InvokeAsync<string>("getUserTimeZone");
+            if (usersTimeZone == null)
+            {
+                usersTimeZone = "UTC";
+            }
+            StateHasChanged(); // Re-render with updated time zone
         }
     }
 
@@ -282,7 +364,7 @@
         BlogPostComment newComment = new BlogPostComment
         {
             BlogPostId = BlogPostId,
-            Pseudonym = _authService.Pseudonym,
+            UserId = _authService.appUser.Id,
             Content = newCommentContent,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -369,8 +451,4 @@
         }
         return "An unknown error occurred.";
     }
-
-
-
-
 }

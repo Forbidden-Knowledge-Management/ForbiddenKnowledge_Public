@@ -89,8 +89,6 @@ try
     .AddDefaultTokenProviders()
     .AddUserStore<CustomUserStore>();
 
-    builder.Services.AddScoped<IUserClaimsPrincipalFactory<User>, CustomUserClaimsPrincipalFactory>();
-
     // Configure Cookie Authentication
     builder.Services.ConfigureApplicationCookie(options =>
     {

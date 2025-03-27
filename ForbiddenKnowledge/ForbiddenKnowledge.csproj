@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Remove="C:\Users\ztrm\.nuget\packages\dnsclientx\0.3.4\contentFiles\any\net8.0\DnsClientX.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Audit.NET" Version="27.0.3" />
     <PackageReference Include="Audit.NET.PostgreSql" Version="27.0.3" />
     <PackageReference Include="Audit.WebApi.Core" Version="27.0.3" />

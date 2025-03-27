@@ -30,16 +30,16 @@ namespace ForbiddenKnowledge.Data
                     .OnDelete(DeleteBehavior.Cascade);        
             });
 
-            modelBuilder.Entity<BlogPostComment>(entity =>
-            {
-                entity.HasKey(e => e.Id);
+            //modelBuilder.Entity<BlogPostComment>(entity =>
+            //{
+            //    entity.HasKey(e => e.Id);
 
-                entity.HasOne(e => e.User)
-                      .WithMany()
-                      .HasForeignKey(e => e.Pseudonym)
-                      .HasPrincipalKey(u => u.OriginalPseudonym)
-                      .OnDelete(DeleteBehavior.SetNull);
-            });
+            //    entity.HasOne(e => e.User)
+            //          .WithMany()
+            //          .HasForeignKey(e => e.Pseudonym)
+            //          .HasPrincipalKey(u => u.OriginalPseudonym)
+            //          .OnDelete(DeleteBehavior.SetNull);
+            //});
 
 
         }
@@ -58,6 +58,8 @@ namespace ForbiddenKnowledge.Data
         public DbSet<User> Users { get; set; }
 
         public DbSet<BlogPostComment> BlogPostComments { get; set; }
+
+        public DbSet<ReferenceDocument> ReferenceDocuments { get; set; }
 
 
 

@@ -1,10 +1,11 @@
 ﻿using ForbiddenKnowledge.Data;
+using ForbiddenKnowledge.Data.DbModels;
 
 namespace ForbiddenKnowledge.Services
 {
     public interface IAuthService
     {
-        string? Pseudonym { get;}
+        User appUser { get; set; }
 
         Task<bool> CheckAuthenticationStatusAsync();
 

@@ -21,7 +21,7 @@ namespace ForbiddenKnowledge.Data.DbModels
         public int AuthorId { get; set; }
 
         // Navigation property
-        public Author Author { get; set; }
+        public Author Author { get; set; } = null!;
 
         [Required]
         [Column("published_date_time")]

@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Org.BouncyCastle.Utilities;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ForbiddenKnowledge.Data.DbModels
@@ -15,5 +16,13 @@ namespace ForbiddenKnowledge.Data.DbModels
         [MaxLength(100)]
         [Column("name")]
         public required string Name { get; set; }
+
+        [Required]
+        [MaxLength(25)]
+        [Column("tag_type")]
+        public required string TagType { get; set; }
+
+        [Column("chapter")]
+        public int? Chapter { get; set; }
     }
 }

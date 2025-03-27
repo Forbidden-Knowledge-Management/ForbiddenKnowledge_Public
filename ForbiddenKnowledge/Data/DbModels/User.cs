@@ -50,9 +50,22 @@ namespace ForbiddenKnowledge.Data.DbModels
         [Column("lockout_enabled")]
         public bool LockoutEnabled { get; set; }
 
-        // Required by Identity for case-insensitive email comparison
-        [NotMapped]
-        public string? NormalizedEmail => Email?.ToUpperInvariant();
+        [Column("is_contributor")]
+        public bool IsContributor { get; set; }
 
+
+
+
+        public bool IsLightweight()
+        {
+            if (Email == null )
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
     }
 }

@@ -102,6 +102,11 @@
                 }
             };
         </script>
+        <!-- This retrives the user's time zone for dynamic conversion to user's time-->
+        <script>
+            window.getUserTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
+        </script>
+
     </body>
 
 </html>

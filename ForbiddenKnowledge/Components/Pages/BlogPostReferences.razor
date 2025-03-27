@@ -1,0 +1,64 @@
+﻿@page "/blogposts/{blogPostId:int}/references"
+@using ForbiddenKnowledge.Components.Shared
+@using ForbiddenKnowledge.Data.DbModels
+@using ForbiddenKnowledge.Services
+
+@inject ILogger<BlogPostReferences> _logger
+@inject IBlogPostService _blogPostService
+@inject IConfiguration _configuration
+
+
+
+@if (isLoading)
+{
+    <p>Loading...</p>
+}
+else if (!string.IsNullOrEmpty(blogPostReferencesContent))
+{
+    <h3>References for: @blogPost.Title</h3>
+
+    <div class="blog-content" @key="BlogPostId">
+        @((MarkupString)blogPostReferencesContent)
+    </div>
+}
+
+
+
+@code {
+    [Parameter]
+    public int BlogPostId { get; set; }
+
+    Data.DbModels.BlogPost? blogPost;
+
+    string? blogPostReferencesContent = string.Empty;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            blogPost = await _blogPostService.GetBlogPostSimpleById(BlogPostId);
+            if (blogPost != null && blogPost != default)
+            {
+                isLoading = false;
+
+                string filePath;
+                //so our dev environment is windows, but our prod and test environments are linux
+                if (_configuration.GetValue<string>("EnvironmentName") == "Development")
+                {
+                    filePath = _configuration.GetValue<string>("BlogPostReferencesFilePath") + "\\" + blogPost.Filename + ".html";
+                }
+                else
+                {
+                    filePath = _configuration.GetValue<string>("BlogPostReferencesFilePath") + "/" + blogPost.Filename + ".html";
+                }
+                blogPostReferencesContent = File.Exists(filePath) ? await File.ReadAllTextAsync(filePath) : null;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error loading blog post");
+        }
+    }
+
+}

@@ -1,9 +1,71 @@
 ﻿@page "/blogposts"
+@rendermode InteractiveServer
 @using ForbiddenKnowledge.Services
 @inject NavigationManager NavigationManager
 @inject IBlogPostService _blogPostService
+@inject IJSRuntime _jsRuntime
+@inject IUserService _userService
 
 <div class="main">
+
+    <div class="blogpost-filters">
+
+        <div class="flex-container-column">
+            <div>
+                <label for="categoryDropdown">Select a Category:</label>
+                <select id="categoryDropdown" @onchange="OnCategoryChanged">
+                    <option value="">All</option>
+                    @foreach (var category in categories)
+                    {
+                        <option value="@category.Id">@category.Name</option>
+                    }
+                </select>
+            </div>
+
+            <!-- If the "FK Excerpt" category is selected, then we want to show dropdowns for selecting chapter and section of the FK book (which are just tags)-->
+            @if (selectedCategory == 1)
+            {
+                <div>
+                    <label for="FKChapterDropdown">Select an FK Chapter:</label>
+                    <select id="FKChapterDropdown" @onchange="OnFKChapterChanged">
+                        <option value="">All</option>
+                        @foreach (var chapter in FKChapters)
+                        {
+                            <option value="@chapter.Id">@chapter.Name</option>
+                        }
+                    </select>
+                </div>
+
+                @if (selectedFKChapter != 0 && selectedFKChapter != null && FKSections.Count > 0)
+                {
+                    <div>
+                        <label for="FKSectionDropdown">Select an FK Section:</label>
+                        <select id="FKSectionDropdown" @onchange="OnFKSectionChanged">
+                            <option value="">All</option>
+                            @foreach (var FKSection in FKSections)
+                            {
+                                <option value="@FKSection.Id">@FKSection.Name</option>
+                            }
+                        </select>
+                    </div>
+                }
+            }
+        </div>
+
+        <div>
+            <label for="tagDropdown">Select a Tag:</label>
+            <select id="tagDropdown" @onchange="OnTagChanged">
+                <option value="">All</option>
+                @foreach (var tag in genericTags)
+                {
+                    <option value="@tag.Id">@tag.Name</option>
+                }
+            </select>
+        </div>
+
+    </div>
+
+    <hr class="blog-post-separator" />
 
     @if (blogPosts == null)
     {
@@ -11,7 +73,24 @@
     }
     else if (!blogPosts.Any())
     {
-        <h3>There are no posts at this time</h3>
+        switch (selectedCategory, selectedTag)
+        {
+            case (0, 0):
+                <h3>There are no posts at this time</h3>
+                break;
+
+            case(> 0, 0):
+                <h3>There are no posts with the @categories.First(c => c.Id == selectedCategory).Name category</h3>
+                break;
+
+            case (0, > 0):
+                <h3>There are no posts with the @genericTags.First(t => t.Id == selectedTag).Name tag</h3>
+                break;
+
+            case (> 0, > 0):
+                <h3>There are no posts with the @genericTags.First(t => t.Id == selectedTag).Name tag and the @categories.First(c => c.Id == selectedCategory).Name category</h3>
+                break;
+        }
     }
     else
     {
@@ -35,7 +114,8 @@
 
                         <!-- Author and Published Time -->
                         <p class="blog-post-meta">
-                            By @post.Author.Name | Published @post.PublishedDateTime.ToString("MMMM dd, yyyy")
+                            By @post.Author.Name
+                            <span class="fade-in @(usersTimeZone != null ? "loaded" : "")"> | Published @_userService.ConvertDateTimeToUsersTimeZone(post.PublishedDateTime, usersTimeZone).ToString("MMMM dd, yyyy")</span>
                         </p>
 
                         <!-- Excerpt or Description (optional) -->
@@ -56,10 +136,105 @@
 @code 
 {
     List<Data.DbModels.BlogPost> blogPosts = new List<Data.DbModels.BlogPost>();
+    private List<Data.DbModels.BlogPostCategoryLookup> categories = new();
+    private List<Data.DbModels.BlogPostTagLookup> genericTags = new();
+    private List<Data.DbModels.BlogPostTagLookup> FKChapters = new();
+    private List<Data.DbModels.BlogPostTagLookup> FKSections = new();
+    private string? usersTimeZone = null;
+
+    private int selectedCategory = 0;
+    private int selectedTag = 0;
+    private int selectedFKChapter = 0;
+    private int selectedFKSection = 0;
+
+
+
 
     protected override async Task OnInitializedAsync()
     {
-        blogPosts = await _blogPostService.GetBlogPosts();
+        categories  = await _blogPostService.GetCategoriesAsync();
+        genericTags = await _blogPostService.GetGenericTagsAsync();
+        blogPosts   = await _blogPostService.GetBlogPosts();
+        FKChapters  = await _blogPostService.GetFKChaptersAsync();
     }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            usersTimeZone = await _jsRuntime.InvokeAsync<string>("getUserTimeZone");
+            if (usersTimeZone == null)
+            {
+                usersTimeZone = "UTC";
+            }
+            StateHasChanged(); // Re-render with updated time zone
+        }
+    }
+
+    //e.value is the value of the selected option element
+    private async Task OnCategoryChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value.ToString(), out int categoryId))
+        {
+            selectedCategory = categoryId;
+            blogPosts = await _blogPostService.GetBlogPosts(categoryId: selectedCategory, tagId: selectedTag);
+        }
+        else
+        {
+            selectedCategory = 0;
+            blogPosts = await _blogPostService.GetBlogPosts(tagId: selectedTag);
+        }
+        StateHasChanged();
+    }
+
+    //e.value is the value of the selected option element
+    private async Task OnTagChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value.ToString(), out int tagId))
+        {
+            selectedTag = tagId;
+            blogPosts = await _blogPostService.GetBlogPosts(categoryId: selectedCategory, tagId: selectedTag);
+        }
+        else
+        {
+            selectedTag = 0;
+            blogPosts = await _blogPostService.GetBlogPosts(categoryId: selectedCategory);
+        }
+        StateHasChanged();
+    }
+
+    //e.value is the value of the selected option element
+    private async Task OnFKChapterChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value.ToString(), out int chapterId))
+        {
+            selectedFKChapter = chapterId;
+            FKSections = await _blogPostService.GetFKSectionsAsync(tagIdOfFKChapter: chapterId);
+            blogPosts = await _blogPostService.GetBlogPosts(categoryId: selectedCategory, tagId: selectedTag, tagIdChapter: selectedFKChapter);
+        }
+        else
+        {
+            selectedFKChapter = 0;
+            blogPosts = await _blogPostService.GetBlogPosts(categoryId: selectedCategory, tagId: selectedTag);
+        }
+        StateHasChanged();
+    }
+
+    //e.value is the value of the selected option element
+    private async Task OnFKSectionChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value.ToString(), out int sectionId))
+        {
+            selectedFKSection = sectionId;
+            blogPosts = await _blogPostService.GetBlogPosts(categoryId: selectedCategory, tagId: selectedTag, tagIdChapter: selectedFKChapter, tagIdSection: sectionId);
+        }
+        else
+        {
+            selectedFKSection = 0;
+            blogPosts = await _blogPostService.GetBlogPosts(categoryId: selectedCategory, tagId: selectedTag, tagIdChapter: selectedFKChapter);
+        }
+        StateHasChanged();
+    }
+
 
 }
