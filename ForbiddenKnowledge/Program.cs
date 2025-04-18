@@ -38,8 +38,12 @@ try
     //Retrieve configuration settings
     builder.Host.ConfigureAppConfiguration((hostingContext, config) =>
     {
-        config.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+        var env = hostingContext.HostingEnvironment;
+
+        config.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+              .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true, reloadOnChange: true);
     });
+
 
     //Set up DB Contexts
     //First we make the DBContext for the ForbiddenKnowledgeContext.

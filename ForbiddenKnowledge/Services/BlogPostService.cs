@@ -81,17 +81,24 @@ namespace ForbiddenKnowledge.Services
                                                        .FirstOrDefault(p => p.Id == blogPostId);
             if (post != null && post != default) 
             {
-                string filePath;
-                //so our dev environment is windows, but our prod and test environments are linux
-                if (_configuration.GetValue<string>("EnvironmentName") == "Development")
+                try
                 {
-                    filePath = _configuration.GetValue<string>("BlogPostFilePath") + "\\" + post.Filename + ".html";
+                    var folder = _configuration.GetValue<string>("BlogPostFilePath");
+                    var filePath = Path.Combine(folder, post.Filename + ".html");
+
+                    if (File.Exists(filePath))
+                    {
+                        post.PostContent = await File.ReadAllTextAsync(filePath);
+                    }
+                    else
+                    {
+                        _logger.LogError("File not found.");
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    filePath = _configuration.GetValue<string>("BlogPostFilePath") + "/" + post.Filename + ".html";
+                    _logger.LogError(ex, $"Error reading blog post file: {ex.Message}");
                 }
-                post.PostContent = File.Exists(filePath) ? await File.ReadAllTextAsync(filePath) : null;
             }
             return post;
         }
@@ -133,8 +140,8 @@ namespace ForbiddenKnowledge.Services
         public async Task<int> GetBlogPostPageViews(int blogPostId)
         {
             NpgsqlParameter blogPostIdParam = new NpgsqlParameter("blogPostIdParam", blogPostId);
-            int result = await _auditDbContext.Database.SqlQueryRaw<int>("SELECT get_unique_blog_post_page_count(@blogPostIdParam)", blogPostIdParam).SingleAsync();
-            return result;
+            DTOBlogPostPageViewCount result = await _auditDbContext.BlogPostPageViewCounts.FromSqlRaw("SELECT get_unique_blog_post_page_count(@blogPostIdParam) AS Count", blogPostIdParam).SingleAsync();
+            return result.Count;
         }
 
         public async Task<(bool Succeeded, string? Error)> SubmitNewComment(BlogPostComment blogPostComment)

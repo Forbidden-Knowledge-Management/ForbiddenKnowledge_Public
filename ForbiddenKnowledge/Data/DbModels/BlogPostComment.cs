@@ -28,6 +28,7 @@ namespace ForbiddenKnowledge.Data.DbModels
 
         [Required]
         [Column("content")]
+        [StringLength(5000, MinimumLength = 5)]
         public required string Content { get; set; }
 
         [Required]

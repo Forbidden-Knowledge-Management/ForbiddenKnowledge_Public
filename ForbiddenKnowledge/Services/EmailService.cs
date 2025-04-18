@@ -29,7 +29,7 @@ namespace ForbiddenKnowledge.Services
             using SmtpClient client = new SmtpClient();
             try
             {
-                await client.ConnectAsync("mail.morelliwebservices.com", 587, SecureSocketOptions.StartTls);
+                await client.ConnectAsync("mail.morelliwebservices.com", 465, SecureSocketOptions.SslOnConnect);
                 await client.AuthenticateAsync("admin@forbidden-knowledge.com", password);
                 string emailServerResponse = await client.SendAsync(message);
 

@@ -360,12 +360,18 @@ else
             return;
         }
 
+        if (newCommentContent.Length >= 5000)
+        {
+            commentSubmissionErrorMessage = "Comment cannot be greater than 5,000 characters.";
+            return;
+        }
+
         isSubmittingComment = true; // Disable the submit comment button while submitting
         BlogPostComment newComment = new BlogPostComment
         {
             BlogPostId = BlogPostId,
             UserId = _authService.appUser.Id,
-            Content = newCommentContent,
+            Content = newCommentContent.Trim(),
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };

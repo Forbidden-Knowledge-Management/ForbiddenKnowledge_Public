@@ -394,54 +394,69 @@ footer {
         font-size: 16px;
     }
 
-        .toggle-password i {
-            font-size: 20px; /* Make the eye icon larger */
-        }
+    .toggle-password i {
+        font-size: 20px; /* Make the eye icon larger */
+    }
 
-        .toggle-password:hover {
-            color: #007bff;
-        }
+    .toggle-password:hover {
+        color: #007bff;
+    }
 
     .fade-in {
         opacity: 0;
         transition: opacity 3s ease-in-out;
     }
 
-        .fade-in.loaded {
-            opacity: 1;
-        }
+    .fade-in.loaded {
+        opacity: 1;
+    }
 
+.audio-player-container {
+    padding: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #3a0647; /* Optional: match sidebar background */
+}
+
+@media (min-width: 751px) {
     .audio-player-container {
         position: absolute;
         bottom: 0;
-        height: 80px;
+        left: 0;
         width: 100%;
-        padding: 5px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
+        height: 80px;
     }
-
-        .audio-player-container audio {
-            width: 100%;
-            max-width: 300px; /* Adjust size if needed */
-        }
+}
 
 
+.audio-player-container audio {
+    width: 100%;
+    max-width: 300px; /* Adjust size if needed */
+}
+
+
+.reference-file-image {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    margin-right: 15px;
+}
+
+.white-background {
+    background-color: white;
+}
 
 
 
 
 
 
-
-
-
-    /*auto styles*/
-    html, body {
-        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-        scroll-behavior: smooth;
-    }
+/*auto styles*/
+html, body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    scroll-behavior: smooth;
+}
 
     a, .btn-link {
         color: #006bb7;

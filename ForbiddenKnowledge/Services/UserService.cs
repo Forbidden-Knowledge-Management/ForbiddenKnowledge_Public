@@ -227,7 +227,8 @@ namespace ForbiddenKnowledge.Services
                 </body>
                 </html>";
 
-            await _emailService.SendEmailAsync(user.Email, "Password Reset Code from Forbidden Knowledge", emailBody);
+            //fire-and-forget the email send method so it doesn't hold up the frontend
+            _ = Task.Run(() => _emailService.SendEmailAsync(user.Email, "Password Reset Code from Forbidden Knowledge", emailBody));
             return (true, "If an account exists with that email, a reset code has been sent.");
         }
 
@@ -271,20 +272,35 @@ namespace ForbiddenKnowledge.Services
         /// <param name="dateTime"></param>
         /// <param name="timeZoneId"></param>
         /// <returns></returns>
-        public DateTime ConvertDateTimeToUsersTimeZone(DateTime dateTime, string timeZoneId)
+        public DateTime ConvertDateTimeToUsersTimeZone(DateTime dateTime, string? timeZoneId)
         {
+            if (string.IsNullOrWhiteSpace(timeZoneId))
+            {
+                // This is expected during first page load
+                _logger.LogDebug($"{MethodBase.GetCurrentMethod()?.Name}: timeZoneId is null or empty. Returning original UTC datetime.");
+                return dateTime;
+            }
+
             try
             {
                 TimeZoneInfo timeZone = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
                 DateTime dateTimeInUsersZone = TimeZoneInfo.ConvertTimeFromUtc(dateTime, timeZone);
                 return dateTimeInUsersZone;
-
+            }
+            catch (TimeZoneNotFoundException ex)
+            {
+                _logger.LogWarning(ex, $"{MethodBase.GetCurrentMethod()?.Name}: Unknown time zone '{timeZoneId}'. Falling back to UTC.");
+            }
+            catch (InvalidTimeZoneException ex)
+            {
+                _logger.LogWarning(ex, $"{MethodBase.GetCurrentMethod()?.Name}: Invalid time zone data for '{timeZoneId}'. Falling back to UTC.");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"{MethodBase.GetCurrentMethod().Name}: Unexpected error occurred while converting date time to user time zone. Exception: {ex}");
-                return dateTime;
+                _logger.LogWarning($"{MethodBase.GetCurrentMethod().Name}: Unexpected error occurred while converting date time to user time zone. Falling back to UTC.");
             }
+
+            return dateTime;
         }
 
         //Pseudonyms are case-insensitive. That is maintained elsewhere. This is for more specific, custom stuff.
