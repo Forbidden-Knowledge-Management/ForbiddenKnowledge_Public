@@ -49,7 +49,7 @@ namespace ForbiddenKnowledge.Services.Audit
             return new AuditTrail
             {
                 Timestamp = auditEvent.StartDate,
-                IpAddress = auditApiAction.IpAddress,
+                IpAddress = GetRealClientIp(auditApiAction),
                 HttpMethod = auditApiAction.HttpMethod,
                 RequestUrl = string.Create(Math.Min(2048, auditApiAction.RequestUrl.Length), auditApiAction.RequestUrl, (span, input) => input.AsSpan(0, Math.Min(2048, input.Length)).CopyTo(span)),
                 ActionName = auditApiAction.ActionName != null ? string.Create(Math.Min(256, auditApiAction.ActionName.Length), auditApiAction.ActionName, (span, input) => input.AsSpan(0, Math.Min(256, input.Length)).CopyTo(span)) : null,
@@ -74,6 +74,19 @@ namespace ForbiddenKnowledge.Services.Audit
             };
         }
 
+        private string GetRealClientIp(AuditApiAction auditApiAction)
+        {
+            // Prefer X-Forwarded-For if available
+            if (auditApiAction.Headers.TryGetValue("X-Forwarded-For", out string forwardedFor))
+            {
+                // The X-Forwarded-For header can contain multiple IPs, the first one is the client IP
+                string realIp = forwardedFor.Split(',')[0].Trim();
+                return realIp;
+            }
+
+            // Fall back to whatever IP Audit.NET got
+            return auditApiAction.IpAddress;
+        }
 
     }
 }
