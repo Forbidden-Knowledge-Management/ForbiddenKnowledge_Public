@@ -30,4 +30,10 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="wwwroot\img\authors\" />
+    <Folder Include="wwwroot\img\blog\" />
+    <Folder Include="wwwroot\reference_docs\" />
+  </ItemGroup>
+
 </Project>

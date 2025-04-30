@@ -1,1 +1,0 @@
-Forbidden Knowledge is a blog/forum web application for the sharing and discussion of radical anarchist political and economic theory. It is built on ASP.NET 8 with Blazor. It uses Postgresql for the DB.
